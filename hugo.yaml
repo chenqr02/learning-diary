@@ -1,0 +1,32 @@
+baseURL: https://chenqirui.github.io/learning-diary/
+languageCode: zh-cn
+title: 学习日记
+theme: PaperMod
+
+params:
+  homeInfoParams:
+    Title: "我的学习日记"
+    Content: "每天记录学习点滴"
+  ShowReadingTime: true
+  ShowShareButtons: false
+  ShowPostNavLinks: true
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: true
+
+menu:
+  main:
+    - name: 归档
+      url: /archives/
+      weight: 10
+    - name: 标签
+      url: /tags/
+      weight: 20
+    - name: 搜索
+      url: /search/
+      weight: 30
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
