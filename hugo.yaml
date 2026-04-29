@@ -1,6 +1,6 @@
 baseURL: https://chenqr02.github.io/learning-diary/
 languageCode: zh-cn
-title: 学习日记
+title: Diary
 theme: PaperMod
 
 params:
