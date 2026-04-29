@@ -1,20 +1,43 @@
 ---
 date: '2026-04-28T22:19:02+08:00'
 draft: false
-title: '第一篇学习日记'
-tags: ["开始"]
+title: 'First Diary'
+tags: ["Start"]
 ---
 
-今天开始记录我的学习旅程。
+Today I start recording my learning journey.
 
 <!--more-->
 
-## 今日学习
+## What I Learned Today
 
-- 搭建了 Hugo 博客
-- 配置了 GitHub Actions 自动部署
+- Set up a Hugo blog
+- Configured GitHub Actions for auto deployment
 
-## 明日计划
+## Tomorrow's Plan
 
-- 开始学习新内容
-- 持续记录
+- Start learning new content
+- Keep recording
+
+## LaTeX Test
+
+Inline math: $E = mc^2$
+
+Block math:
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+More formulas:
+
+$$
+\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+$$
+
+$$
+f(x) = \begin{cases}
+  x^2 & \text{if } x \geq 0 \\
+  -x & \text{if } x < 0
+\end{cases}
+$$

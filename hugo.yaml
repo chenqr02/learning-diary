@@ -12,6 +12,7 @@ params:
   ShowPostNavLinks: true
   ShowBreadCrumbs: true
   ShowCodeCopyButtons: true
+  math: true
 
 menu:
   main:
