@@ -5,8 +5,8 @@ theme: PaperMod
 
 params:
   homeInfoParams:
-    Title: "我的学习日记"
-    Content: "每天记录学习点滴"
+    Title: "A journey of a thousand miles"
+    Content: "Begins with a single step"
   ShowReadingTime: true
   ShowShareButtons: false
   ShowPostNavLinks: true
