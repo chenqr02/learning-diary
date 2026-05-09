@@ -1,9 +1,9 @@
 ---
 date: '2026-05-10T10:00:00+08:00'
 draft: false
-title: '大模型面试精讲（五）：Agent 与 RAG'
-tags: ["LLM", "面试", "Agent", "ReAct", "RAG", "工具调用", "多Agent", "向量检索"]
-summary: '系统整理 AI Agent 高频面试题，涵盖 Agent 基础、ReAct 框架、工具调用、规划执行、多 Agent 系统以及 RAG 检索增强生成。'
+title: '大模型面试精讲（五）：Agent'
+tags: ["LLM", "面试", "Agent", "ReAct", "RAG", "MCP", "Harness", "工具调用", "多Agent", "向量检索"]
+summary: '系统整理 AI Agent 高频面试题，涵盖 Agent 基础、ReAct 框架、工具调用、规划执行、多 Agent 系统、MCP 协议、Skills 与 Harness 工程。'
 ---
 
 面试复习第五轮，聚焦 Agent 和 RAG。这两个方向是大模型应用落地最热门的技术，也是面试中出镜率极高的考点。
@@ -916,6 +916,630 @@ print(result)
 
 ---
 
+## 七、MCP 协议篇
+
+### 21｜什么是 MCP（Model Context Protocol）？它解决了什么问题？
+
+**MCP（Model Context Protocol）** 是 Anthropic 提出的一个开放标准协议，用于规范 LLM 应用与外部数据源、工具之间的通信方式。可以把它理解为 AI 应用世界的"USB-C 接口"——一个统一的连接标准。
+
+**解决的核心问题：**
+
+在 MCP 出现之前，每个 AI 应用都需要为每个外部工具/数据源单独编写集成代码，导致 $M \times N$ 的集成复杂度（M 个应用 × N 个工具）。MCP 将其简化为 $M + N$：应用实现 MCP 客户端，工具实现 MCP 服务端，通过标准协议互通。
+
+**MCP 架构：**
+
+```
+┌─────────────────────┐
+│   MCP Host（宿主）    │  ← 如 Claude Desktop、IDE、AI 应用
+│  ┌────────────────┐  │
+│  │  MCP Client    │  │  ← 维护与 Server 的连接
+│  └───────┬────────┘  │
+└──────────┼───────────┘
+           │  标准协议（JSON-RPC 2.0）
+    ┌──────┼──────┐
+    │      │      │
+┌───▼─┐ ┌──▼──┐ ┌▼────┐
+│Server│ │Server│ │Server│  ← 各类工具/数据源的 MCP 服务
+│  A   │ │  B   │ │  C   │
+└─────┘ └─────┘ └─────┘
+```
+
+**三大核心能力：**
+
+| 能力 | 说明 | 示例 |
+|------|------|------|
+| Resources | 向 LLM 暴露数据，类似 GET 请求 | 读取文件、数据库记录、API 响应 |
+| Tools | 让 LLM 调用可执行的操作，类似 POST 请求 | 发送邮件、写数据库、调用外部 API |
+| Prompts | 预定义的提示词模板 | 代码审查模板、数据分析模板 |
+
+**与 Function Calling 的区别：**
+
+| 特性 | Function Calling | MCP |
+|------|-----------------|-----|
+| 标准化 | 各厂商各自实现 | 统一开放协议 |
+| 可发现性 | 需硬编码 | 运行时动态发现工具 |
+| 跨平台 | 绑定特定模型 | 任何 LLM 宿主均可接入 |
+| 生态 | 碎片化 | 可复用的服务端生态 |
+
+---
+
+### 22｜MCP 的通信机制是什么？有哪些传输方式？
+
+**协议基础：** MCP 基于 JSON-RPC 2.0 协议进行通信，支持请求-响应和通知两种模式。
+
+**生命周期：**
+
+```
+1. 初始化（Initialize）
+   Client → Server: 协商协议版本和能力
+   Server → Client: 返回支持的能力
+
+2. 正常通信
+   Client ↔ Server: 请求-响应、通知
+
+3. 关闭（Shutdown）
+   Client → Server: 断开连接
+```
+
+**传输方式：**
+
+| 传输方式 | 说明 | 适用场景 |
+|----------|------|----------|
+| stdio | 通过标准输入/输出通信 | 本地进程、CLI 工具 |
+| HTTP + SSE | HTTP 请求 + Server-Sent Events 推送 | 远程服务、Web 应用 |
+| Streamable HTTP | HTTP 流式传输，支持无状态和有状态模式 | 新一代远程传输，替代 SSE |
+
+**stdio 示例：**
+
+```json
+// Client 发送请求
+{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "read_file", "arguments": {"path": "/tmp/test.txt"}}}
+
+// Server 返回结果
+{"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "file content"}]}}
+```
+
+**本地 vs 远程 MCP：**
+
+| 特性 | 本地 MCP（stdio） | 远程 MCP（HTTP） |
+|------|-------------------|-----------------|
+| 部署 | 与宿主同机 | 独立部署 |
+| 安全 | 操作系统级隔离 | 需要 OAuth 2.0 认证 |
+| 延迟 | 低 | 有网络开销 |
+| 扩展性 | 受限于单机 | 可水平扩展 |
+
+---
+
+### 23｜如何实现一个 MCP Server？需要考虑哪些设计问题？
+
+**实现步骤：**
+
+```python
+# Python MCP Server 示例
+from mcp.server import Server
+from mcp.types import Tool, TextContent
+
+server = Server("my-mcp-server")
+
+# 定义工具列表
+@server.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="search_database",
+            description="搜索数据库中的记录",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词"},
+                    "limit": {"type": "integer", "description": "返回数量", "default": 10}
+                },
+                "required": ["query"]
+            }
+        )
+    ]
+
+# 实现工具调用
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "search_database":
+        results = await search_db(arguments["query"], arguments.get("limit", 10))
+        return [TextContent(type="text", text=str(results))]
+
+# 启动服务
+async def main():
+    from mcp.server.stdio import stdio_server
+    async with stdio_server() as (read, write):
+        await server.run(read, write)
+```
+
+**关键设计问题：**
+
+| 问题 | 说明 |
+|------|------|
+| 工具粒度 | 太粗放则 LLM 难以精准调用，太细碎则调用次数多、上下文膨胀 |
+| 描述质量 | 工具描述直接影响 LLM 的选择准确性，需要清晰、无歧义 |
+| 参数校验 | 严格校验输入参数，防止非法调用 |
+| 错误处理 | 返回结构化错误信息，方便 LLM 理解和重试 |
+| 安全性 | 最小权限原则、输入消毒、速率限制 |
+| 幂等性 | 工具调用应尽量幂等，支持安全重试 |
+
+**安全最佳实践：**
+
+- 敏感操作需要人类确认（human-in-the-loop）
+- 实施速率限制防止滥用
+- 输入验证防止注入攻击
+- 日志审计所有工具调用
+- 使用 OAuth 2.0 进行远程认证
+
+---
+
+## 八、Skills 与 Prompt 工程篇
+
+### 24｜什么是 Agent 的 Skills？如何设计 Skill 系统？
+
+**Skill（技能）** 是 Agent 的可复用能力单元，封装了特定任务的提示词、工具组合和执行逻辑。可以理解为 Agent 的"技能包"。
+
+**Skill 的组成：**
+
+```
+┌─────────────────────┐
+│       Skill          │
+├─────────────────────┤
+│ 触发条件（Trigger）   │  ← 何时使用该 Skill
+│ 系统提示（Prompt）    │  ← 指导 LLM 如何执行
+│ 工具集（Tools）       │  ← 该 Skill 可用的工具
+│ 执行逻辑（Logic）     │  ← 预处理、后处理流程
+│ 输出格式（Output）    │  ← 结果的结构化格式
+└─────────────────────┘
+```
+
+**设计模式：**
+
+| 模式 | 说明 | 示例 |
+|------|------|------|
+| 单一职责 | 每个 Skill 只做一件事 | 代码审查、文档生成、数据分析 |
+| 可组合 | Skill 之间可以组合调用 | 先"搜索"再"总结" |
+| 可覆盖 | 支持自定义覆盖默认行为 | 自定义代码风格 |
+| 上下文感知 | 根据上下文调整行为 | 根据项目语言选择 lint 规则 |
+
+**Skill 系统设计示例：**
+
+```python
+class Skill:
+    def __init__(self, name, description, trigger, prompt_template, tools):
+        self.name = name
+        self.description = description
+        self.trigger = trigger           # 触发条件
+        self.prompt_template = prompt_template  # 提示词模板
+        self.tools = tools               # 可用工具列表
+
+    def should_activate(self, context) -> bool:
+        """判断是否应该激活该 Skill"""
+        return self.trigger(context)
+
+    def render_prompt(self, **kwargs) -> str:
+        """渲染提示词"""
+        return self.prompt_template.format(**kwargs)
+
+class SkillRegistry:
+    def __init__(self):
+        self.skills = {}
+
+    def register(self, skill):
+        self.skills[skill.name] = skill
+
+    def find_skill(self, context):
+        """根据上下文找到合适的 Skill"""
+        for skill in self.skills.values():
+            if skill.should_activate(context):
+                return skill
+        return None
+```
+
+**与 MCP Tools 的关系：**
+
+- **MCP Tools** 提供原子能力（读文件、查数据库）
+- **Skills** 编排多个 Tools 完成复杂任务（代码审查 = 读文件 + 分析 + 生成报告）
+- Skills 是更高层的抽象，Tools 是底层的积木
+
+---
+
+### 25｜如何设计高质量的 Agent Prompt？有哪些技巧？
+
+**Prompt 设计原则：**
+
+| 原则 | 说明 |
+|------|------|
+| 角色明确 | 明确定义 Agent 的角色和能力边界 |
+| 指令清晰 | 使用结构化的指令，避免歧义 |
+| 上下文充足 | 提供足够的背景信息和约束条件 |
+| 输出格式化 | 明确期望的输出格式 |
+
+**Prompt 结构模板：**
+
+```
+# 系统提示结构
+1. 角色定义：你是一个 XX 专家...
+2. 能力说明：你可以使用以下工具...
+3. 行为规范：你应该 / 不应该...
+4. 输出格式：请以 JSON/Markdown 格式返回...
+5. 示例：以下是正确的操作示例...
+```
+
+**关键技巧：**
+
+**1. Few-shot 示例**
+
+```
+用户查询示例：
+输入：北京天气怎么样？
+思考：用户想知道实时天气，需要调用天气 API
+行动：search_weather(city="北京")
+输出：北京今天晴天，25度
+```
+
+**2. 思维链（Chain of Thought）**
+
+```
+请按以下步骤思考：
+1. 分析用户的真实意图
+2. 确定需要哪些信息
+3. 选择合适的工具
+4. 执行并验证结果
+```
+
+**3. 约束和边界**
+
+```
+重要约束：
+- 不要编造信息，如果不确定请说明
+- 敏感操作前必须请求用户确认
+- 每次最多调用 3 个工具
+```
+
+**4. 错误处理指引**
+
+```
+如果工具调用失败：
+1. 分析错误原因
+2. 尝试修正参数后重试（最多 3 次）
+3. 如果仍然失败，告知用户并提供替代方案
+```
+
+---
+
+## 九、Harness 工程篇
+
+### 26｜什么是 Agent Harness？它的核心职责是什么？
+
+**Agent Harness（运行框架）** 是包裹在 LLM 外面的工程层，负责管理 Agent 的完整生命周期——从接收用户输入、调度 LLM 推理、执行工具调用、到返回最终结果。它不是模型本身，而是让模型"跑起来"的基础设施。
+
+**类比理解：**
+
+- LLM 是"大脑"，Harness 是"身体"
+- LLM 是"引擎"，Harness 是"整车"
+- Harness 负责：输入处理 → 模型调度 → 工具执行 → 输出格式化 → 错误恢复
+
+**核心职责：**
+
+```
+用户输入
+  ↓
+┌─────────────────────────────────────┐
+│           Agent Harness             │
+│                                     │
+│  ┌──────────┐  ┌──────────────────┐ │
+│  │ 输入处理  │  │  上下文管理       │ │
+│  └────┬─────┘  └────────┬─────────┘ │
+│       ↓                 ↓           │
+│  ┌──────────────────────────────┐   │
+│  │      LLM 调度器              │   │
+│  │  (prompt 组装 → API 调用)     │   │
+│  └──────────────┬───────────────┘   │
+│                 ↓                   │
+│  ┌──────────────────────────────┐   │
+│  │      工具执行引擎            │   │
+│  │  (解析调用 → 执行 → 返回)     │   │
+│  └──────────────┬───────────────┘   │
+│                 ↓                   │
+│  ┌──────────────────────────────┐   │
+│  │      循环控制器              │   │
+│  │  (ReAct 循环 / 退出判断)      │   │
+│  └──────────────────────────────┘   │
+└─────────────────┬───────────────────┘
+                  ↓
+              输出结果
+```
+
+**与框架的关系：**
+
+| 概念 | 说明 | 代表 |
+|------|------|------|
+| Agent 框架 | 提供构建 Agent 的抽象和工具 | LangChain、LlamaIndex、AutoGen |
+| Agent Harness | 运行时管理 Agent 的完整执行 | Claude Code、Cursor、自研系统 |
+| Agent 模型 | 底层 LLM 的 Agent 能力 | Claude、GPT-4、Gemini |
+
+---
+
+### 27｜Harness 中的循环控制和退出策略是什么？
+
+**Agent Loop（代理循环）** 是 Harness 的核心机制，管理 LLM 与工具之间的交互循环。
+
+**基本循环：**
+
+```
+while True:
+    1. 组装 prompt（系统提示 + 对话历史 + 工具结果）
+    2. 调用 LLM
+    3. 解析 LLM 响应
+    4. if 响应包含工具调用:
+         执行工具 → 将结果加入上下文 → 继续循环
+       elif 响应是最终回答:
+         返回结果 → 退出循环
+       elif 超过最大轮次:
+         强制退出 → 返回当前结果或错误
+```
+
+**退出策略：**
+
+| 策略 | 说明 |
+|------|------|
+| 正常退出 | LLM 生成最终回答，不再调用工具 |
+| 最大轮次 | 超过设定的循环次数（如 25 轮）强制退出 |
+| Token 预算 | 上下文 token 数超过阈值时退出 |
+| 超时退出 | 总执行时间超过限制 |
+| 用户中断 | 用户主动取消执行 |
+| 错误退出 | 遇到不可恢复的错误 |
+
+**实现示例：**
+
+```python
+class AgentHarness:
+    def __init__(self, llm, tools, max_turns=25, max_tokens=100000):
+        self.llm = llm
+        self.tools = tools
+        self.max_turns = max_turns
+        self.max_tokens = max_tokens
+
+    def run(self, user_input: str) -> str:
+        messages = [{"role": "user", "content": user_input}]
+
+        for turn in range(self.max_turns):
+            # 检查 token 预算
+            if self.count_tokens(messages) > self.max_tokens:
+                return self.summarize_and_exit(messages)
+
+            # 调用 LLM
+            response = self.llm.chat(messages, tools=self.tools)
+
+            # 判断是否结束
+            if response.is_final_answer:
+                return response.content
+
+            # 执行工具调用
+            for tool_call in response.tool_calls:
+                result = self.execute_tool(tool_call)
+                messages.append({"role": "tool", "content": result})
+
+        return "达到最大轮次，任务未完成"
+```
+
+---
+
+### 28｜Harness 中如何管理上下文窗口？有哪些压缩策略？
+
+**上下文窗口管理** 是 Harness 工程中最关键的技术挑战之一。随着对话和工具调用的积累，上下文会快速增长并超出模型限制。
+
+**核心问题：**
+
+- 每次工具调用的结果都占用上下文空间
+- 多轮 ReAct 循环产生大量中间状态
+- 上下文溢出会导致模型无法正常工作
+
+**压缩策略：**
+
+| 策略 | 说明 | 适用场景 |
+|------|------|----------|
+| 滑动窗口 | 只保留最近 N 条消息 | 对话历史管理 |
+| 摘要压缩 | 用 LLM 将长对话压缩为摘要 | 长对话场景 |
+| 工具结果裁剪 | 对工具返回结果进行截断或摘要 | 工具返回大量数据 |
+| 选择性保留 | 根据相关性保留重要信息 | 多轮对话 |
+| 分层压缩 | 近期详细、远期摘要 | 长期运行的 Agent |
+
+**实现示例：**
+
+```python
+class ContextManager:
+    def __init__(self, max_tokens=100000, llm=None):
+        self.max_tokens = max_tokens
+        self.llm = llm
+
+    def compress(self, messages: list) -> list:
+        total = self.count_tokens(messages)
+        if total <= self.max_tokens:
+            return messages
+
+        # 策略1: 裁剪工具结果
+        messages = self.trim_tool_results(messages)
+
+        # 策略2: 摘要压缩早期对话
+        if self.count_tokens(messages) > self.max_tokens:
+            messages = self.summarize_early_messages(messages)
+
+        # 策略3: 滑动窗口兜底
+        if self.count_tokens(messages) > self.max_tokens:
+            messages = self.sliding_window(messages)
+
+        return messages
+
+    def summarize_early_messages(self, messages):
+        """将早期消息压缩为摘要"""
+        system = messages[0]  # 保留系统提示
+        early = messages[1:-10]  # 取早期消息
+        recent = messages[-10:]  # 保留最近消息
+
+        summary = self.llm.chat([
+            {"role": "user", "content": f"请将以下对话压缩为简洁摘要：\n{early}"}
+        ])
+        return [system, {"role": "system", "content": f"历史摘要：{summary}"}] + recent
+```
+
+---
+
+### 29｜Harness 如何实现安全控制和权限管理？
+
+**安全挑战：**
+
+Agent 具备执行工具的能力，如果缺乏安全控制，可能导致数据泄露、越权操作、资源滥用等严重后果。
+
+**安全控制层次：**
+
+```
+┌─────────────────────────┐
+│   第一层：输入验证       │  ← 过滤恶意输入、注入攻击
+├─────────────────────────┤
+│   第二层：权限控制       │  ← 工具级权限、数据级权限
+├─────────────────────────┤
+│   第三层：执行沙箱       │  ← 隔离执行环境、限制资源
+├─────────────────────────┤
+│   第四层：人类确认       │  ← 敏感操作需人工审批
+├─────────────────────────┤
+│   第五层：审计日志       │  ← 记录所有操作、便于追溯
+└─────────────────────────┘
+```
+
+**权限模型：**
+
+| 维度 | 说明 | 示例 |
+|------|------|------|
+| 工具级权限 | 控制 Agent 可调用哪些工具 | 只允许读取，不允许写入 |
+| 数据级权限 | 控制可访问的数据范围 | 只能访问特定目录 |
+| 操作级权限 | 控制操作的类型和范围 | 禁止删除操作 |
+| 速率限制 | 限制调用频率 | 每分钟最多 10 次 API 调用 |
+
+**Human-in-the-Loop（人类确认）：**
+
+```python
+class SafetyController:
+    DANGEROUS_ACTIONS = ["delete", "drop", "send_email", "pay", "deploy"]
+
+    def require_confirmation(self, tool_call) -> bool:
+        """判断是否需要人类确认"""
+        # 危险操作必须确认
+        if tool_call.name in self.DANGEROUS_ACTIONS:
+            return True
+        # 写操作需要确认
+        if tool_call.name.startswith("write_"):
+            return True
+        return False
+
+    def execute_with_safety(self, tool_call):
+        if self.require_confirmation(tool_call):
+            approved = self.ask_user_approval(tool_call)
+            if not approved:
+                return "操作已被用户取消"
+        return self.execute_tool(tool_call)
+```
+
+**沙箱执行：**
+
+- Docker 容器隔离代码执行
+- 文件系统限制（只读挂载、目录白名单）
+- 网络限制（禁止访问内网）
+- 资源限制（CPU、内存、执行时间）
+
+---
+
+### 30｜如何设计一个生产级的 Agent Harness？需要考虑哪些工程问题？
+
+**生产级 Harness 的关键工程问题：**
+
+| 问题 | 说明 | 解决方案 |
+|------|------|----------|
+| 可靠性 | LLM 调用可能失败或超时 | 重试机制、降级策略、超时控制 |
+| 可观测性 | 需要追踪 Agent 的每一步决策 | 结构化日志、链路追踪、可视化 |
+| 可扩展性 | 支持多种 LLM、多种工具 | 抽象接口、插件化设计 |
+| 成本控制 | LLM 调用和工具调用都有成本 | Token 预算、缓存、模型路由 |
+| 测试性 | Agent 行为难以预测和测试 | 回归测试、Eval 框架、Mock |
+
+**架构设计：**
+
+```python
+class ProductionHarness:
+    def __init__(self, config):
+        self.llm_router = LLMRouter(config.models)      # 多模型路由
+        self.tool_registry = ToolRegistry(config.tools)   # 工具注册
+        self.context_manager = ContextManager(config)     # 上下文管理
+        self.safety_controller = SafetyController(config) # 安全控制
+        self.logger = StructuredLogger(config.logging)    # 结构化日志
+        self.cache = ResponseCache(config.cache)          # 响应缓存
+        self.metrics = MetricsCollector(config.metrics)   # 指标采集
+
+    async def run(self, user_input, session_id):
+        trace_id = self.logger.start_trace(session_id)
+
+        try:
+            # 检查缓存
+            cached = self.cache.get(user_input)
+            if cached:
+                return cached
+
+            # 执行 Agent 循环
+            result = await self.agent_loop(user_input, trace_id)
+
+            # 缓存结果
+            self.cache.set(user_input, result)
+            return result
+
+        except Exception as e:
+            self.logger.error(trace_id, e)
+            return self.fallback(e)
+
+        finally:
+            self.logger.end_trace(trace_id)
+            self.metrics.flush()
+```
+
+**可观测性设计：**
+
+```python
+# 每次循环记录
+trace_event = {
+    "turn": 3,
+    "llm_call": {
+        "model": "claude-sonnet-4-6",
+        "input_tokens": 2048,
+        "output_tokens": 512,
+        "latency_ms": 1200
+    },
+    "tool_calls": [
+        {"name": "search", "args": {"query": "..."}, "result_size": 1024, "latency_ms": 300}
+    ],
+    "context_tokens": 15000,
+    "decision": "continue"  # or "final_answer"
+}
+```
+
+**成本控制策略：**
+
+- **模型路由**：简单任务用小模型，复杂任务用大模型
+- **Token 预算**：设置每轮对话的最大 token 数
+- **缓存**：对相同或相似查询缓存结果
+- **批量处理**：合并多个工具调用减少往返
+
+**测试策略：**
+
+| 测试类型 | 说明 |
+|----------|------|
+| 单元测试 | 测试各组件独立功能 |
+| 集成测试 | 测试组件间协作 |
+| 回归测试 | 用固定 case 验证行为不变 |
+| Eval 评估 | 用 LLM 评估 Agent 输出质量 |
+| 混沌测试 | 模拟故障验证容错能力 |
+
+---
+
 ## 总结
 
 本文涵盖了 AI Agent 和 RAG 的高频面试题：
@@ -928,6 +1552,9 @@ print(result)
 | 规划与执行 | 任务规划算法、Plan-and-Execute 流程、规划质量评估 |
 | 多 Agent 系统 | 系统优势、协作通信机制、高效系统设计 |
 | RAG | 核心流程、分块策略、检索优化（混合检索+Rerank）、评估指标 |
+| MCP 协议 | 统一工具协议、通信机制、MCP Server 实现 |
+| Skills | Skill 系统设计、Prompt 工程技巧 |
+| Harness 工程 | 循环控制、上下文压缩、安全权限、生产级架构 |
 
 **面试建议：**
 
@@ -935,4 +1562,6 @@ print(result)
 - 熟悉 ReAct 和 Plan-and-Execute 的区别，能结合场景选择
 - 掌握工具调用的设计和错误处理
 - 了解 RAG 的完整链路和各环节优化方法
+- 理解 MCP 协议的设计思想，能对比 Function Calling
+- 了解 Harness 的工程挑战：上下文管理、安全控制、可观测性
 - 能够结合实际场景分析问题，给出系统设计方案
