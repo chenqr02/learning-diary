@@ -2,6 +2,7 @@ baseURL: https://chenqr02.github.io/learning-diary/
 languageCode: zh-cn
 title: Diary
 theme: PaperMod
+enableFuture: true
 
 params:
   homeInfoParams:
@@ -13,7 +14,6 @@ params:
   ShowBreadCrumbs: true
   ShowCodeCopyButtons: true
   math: true
-  enableFuture: true
 
 menu:
   main:
