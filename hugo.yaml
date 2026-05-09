@@ -13,6 +13,7 @@ params:
   ShowBreadCrumbs: true
   ShowCodeCopyButtons: true
   math: true
+  enableFuture: true
 
 menu:
   main:
