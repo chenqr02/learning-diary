@@ -1,4 +1,8 @@
 /* Fix code block rendering for CJK characters */
+:root {
+    --code-font: "Cascadia Mono", "Consolas", "SFMono-Regular", "Menlo", "Monaco", "Noto Sans Mono CJK SC", "Microsoft YaHei Mono", "PingFang SC", monospace;
+}
+
 .post-content code,
 .post-content pre,
 .post-content pre code,
@@ -7,7 +11,7 @@
 .chroma,
 .chroma code,
 .chroma span {
-    font-family: "Cascadia Mono", "Consolas", "SFMono-Regular", "Menlo", "Monaco", "Noto Sans Mono CJK SC", "Microsoft YaHei Mono", "PingFang SC", monospace;
+    font-family: var(--code-font);
 }
 
 .post-content code {
@@ -18,11 +22,22 @@
 .post-content pre,
 .post-content pre code,
 .highlight pre,
-.chroma {
+.chroma,
+.chroma code,
+.chroma span {
     font-size: 0.875rem !important;
     line-height: 1.7 !important;
     text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
+}
+
+.md-content .highlight {
+    overflow-x: auto;
+}
+
+.md-content .highlight pre,
+.md-content pre {
+    overflow-x: auto;
 }
 
 .md-content pre code {
@@ -30,10 +45,6 @@
     white-space: pre !important;
     word-break: normal !important;
     overflow-wrap: normal !important;
-}
-
-.chroma .line {
-    display: block !important;
 }
 
 .chroma span,

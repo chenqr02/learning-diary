@@ -20,6 +20,9 @@ params:
   math: true
 
 markup:
+  highlight:
+    noClasses: false
+    lineNos: false
   tableOfContents:
     startLevel: 2
     endLevel: 3
