@@ -1,4 +1,30 @@
 /* Fix code block rendering for CJK characters */
+.post-content code,
+.post-content pre,
+.post-content pre code,
+.highlight,
+.highlight pre,
+.chroma,
+.chroma code,
+.chroma span {
+    font-family: "Cascadia Mono", "Consolas", "SFMono-Regular", "Menlo", "Monaco", "Noto Sans Mono CJK SC", "Microsoft YaHei Mono", "PingFang SC", monospace;
+}
+
+.post-content code {
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+.post-content pre,
+.post-content pre code,
+.highlight pre,
+.chroma {
+    font-size: 0.875rem !important;
+    line-height: 1.7 !important;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
 .md-content pre code {
     display: block !important;
     white-space: pre !important;
@@ -8,4 +34,73 @@
 
 .chroma .line {
     display: block !important;
+}
+
+.chroma span,
+.chroma .cl,
+.chroma .line {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
+
+.katex {
+    font-size: 1.05em;
+}
+
+.katex .cjk_fallback {
+    font-family: "KaTeX_Main", "Times New Roman", "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+    font-size: 1em;
+}
+
+.katex-display {
+    max-width: 100%;
+    margin: 1rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.katex-display > .katex {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+@media (min-width: 1180px) {
+    .post-single > details.toc {
+        position: fixed;
+        top: calc(var(--header-height) + var(--gap));
+        left: max(var(--gap), calc((100vw - var(--main-width)) / 2 - 300px));
+        z-index: 5;
+        width: 260px;
+        max-height: calc(100vh - var(--header-height) - var(--gap) * 2);
+        margin: 0;
+        overflow: auto;
+    }
+
+    .post-single > details.toc summary {
+        position: sticky;
+        top: 0;
+        background: inherit;
+        z-index: 1;
+    }
+
+    .post-single > details.toc .inner {
+        margin: 0 1rem;
+        padding-bottom: 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .post-single > details.toc ul {
+        padding-inline-start: 0;
+    }
+
+    .post-single > details.toc li {
+        margin: 0.35rem 0;
+    }
+
+    .post-single > details.toc a {
+        display: block;
+        color: var(--secondary);
+        line-height: 1.35;
+    }
 }
