@@ -13,7 +13,17 @@ params:
   ShowPostNavLinks: true
   ShowBreadCrumbs: true
   ShowCodeCopyButtons: true
+  ShowToc: true
+  TocOpen: true
+  tocStartLevel: 2
+  tocLevels: 2
   math: true
+
+markup:
+  tableOfContents:
+    startLevel: 2
+    endLevel: 3
+    ordered: false
 
 menu:
   main:

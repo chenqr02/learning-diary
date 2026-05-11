@@ -1,0 +1,31 @@
+{{- $startLevel := int ((.Param "tocStartLevel") | default 2) -}}
+{{- $tocLevels := int ((.Param "tocLevels") | default 2) -}}
+{{- $ordered := (.Param "tocOrdered") | default false -}}
+
+{{- if lt $startLevel 1 -}}{{- $startLevel = 1 -}}{{- end -}}
+{{- if gt $startLevel 6 -}}{{- $startLevel = 6 -}}{{- end -}}
+{{- if lt $tocLevels 1 -}}{{- $tocLevels = 1 -}}{{- end -}}
+{{- $endLevel := add $startLevel (sub $tocLevels 1) -}}
+{{- if lt $endLevel 1 -}}{{- $endLevel = 1 -}}{{- end -}}
+{{- if gt $endLevel 6 -}}{{- $endLevel = 6 -}}{{- end -}}
+{{- if lt $endLevel $startLevel -}}{{- $endLevel = $startLevel -}}{{- end -}}
+
+{{- $toc := .Fragments.ToHTML $startLevel $endLevel $ordered -}}
+{{- $headingPattern := printf "<h[%d-%d][^>]*>" $startLevel $endLevel -}}
+{{- $hasHeaders := ge (len (findRE $headingPattern .Content)) 1 -}}
+
+{{- if $hasHeaders -}}
+<details class="toc" {{ if (.Param "TocOpen") }}open{{ end }}>
+    <summary accesskey="c" title="(Alt + C)">
+        <span class="title">{{- i18n "toc" | default "Table of Contents" }}</span>
+    </summary>
+
+    <div class="inner">
+        {{- if (.Param "UseHugoToc") -}}
+        {{- .TableOfContents -}}
+        {{- else -}}
+        {{- $toc -}}
+        {{- end -}}
+    </div>
+</details>
+{{- end -}}

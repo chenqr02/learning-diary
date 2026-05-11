@@ -1,0 +1,11 @@
+/* Fix code block rendering for CJK characters */
+.md-content pre code {
+    display: block !important;
+    white-space: pre !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+
+.chroma .line {
+    display: block !important;
+}
