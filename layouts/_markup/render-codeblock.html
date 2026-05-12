@@ -1,0 +1,6 @@
+{{- if transform.CanHighlight .Type -}}
+{{- $result := transform.HighlightCodeBlock . -}}
+{{- $result.Wrapped -}}
+{{- else -}}
+{{- transform.Highlight .Inner "text" -}}
+{{- end -}}
