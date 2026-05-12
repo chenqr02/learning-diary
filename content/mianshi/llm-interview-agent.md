@@ -2,8 +2,8 @@
 date: '2026-05-09T14:00:00+08:00'
 draft: false
 title: '大模型面试精讲（五）：Agent'
-tags: ["LLM", "面试", "Agent", "ReAct", "RAG", "MCP", "Harness", "工具调用", "多Agent", "向量检索"]
-summary: '系统整理 AI Agent 高频面试题，涵盖 Agent 基础、ReAct 框架、工具调用、规划执行、多 Agent 系统、MCP 协议、Skills 与 Harness 工程。'
+tags: ["LLM", "面试", "Agent", "ReAct", "RAG", "MCP", "Harness", "工具调用", "多Agent", "向量检索", "OpenAI", "Anthropic", "JSON Schema"]
+summary: '系统整理 AI Agent 高频面试题，涵盖 Agent 基础、ReAct 框架、工具调用、规划执行、多 Agent 系统、MCP 协议、Skills、Harness 工程与 OpenAI/Anthropic API 请求格式。'
 ---
 
 面试复习第五轮，聚焦 Agent 和 RAG。这两个方向是大模型应用落地最热门的技术，也是面试中出镜率极高的考点。
@@ -1540,6 +1540,420 @@ trace_event = {
 
 ---
 
+## 十、OpenAI / Anthropic API 请求格式篇
+
+### 31｜OpenAI 的请求格式如何理解？Responses API 和 Chat Completions 有什么区别？
+
+**核心理解：** OpenAI 当前更推荐把 Agent 调用理解为“输入项 + 输出项 + 工具项”的统一协议。Responses API 把文本、多模态、推理、工具调用、结构化输出放在同一个响应对象中；Chat Completions 则沿用经典的 `messages` 对话数组。
+
+**Responses API 基本请求：**
+
+```json
+{
+  "model": "gpt-4.1",
+  "input": [
+    {
+      "role": "system",
+      "content": "你是一个严谨的订单查询助手。"
+    },
+    {
+      "role": "user",
+      "content": "帮我查一下订单 A1001 的状态"
+    }
+  ]
+}
+```
+
+**带工具的请求：**
+
+```json
+{
+  "model": "gpt-4.1",
+  "input": "查询订单 A1001 的状态",
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_order_status",
+      "description": "查询订单状态",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "订单编号"
+          }
+        },
+        "required": ["order_id"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}
+```
+
+**模型返回工具调用时的典型结构：**
+
+```json
+{
+  "output": [
+    {
+      "type": "function_call",
+      "call_id": "call_abc123",
+      "name": "get_order_status",
+      "arguments": "{\"order_id\":\"A1001\"}"
+    }
+  ]
+}
+```
+
+注意：`arguments` 通常是一个 JSON 字符串，业务代码需要先 `JSON.parse` / `json.loads`，再执行本地函数。
+
+**把工具结果传回模型：**
+
+```json
+{
+  "model": "gpt-4.1",
+  "input": [
+    {
+      "role": "user",
+      "content": "查询订单 A1001 的状态"
+    },
+    {
+      "type": "function_call",
+      "call_id": "call_abc123",
+      "name": "get_order_status",
+      "arguments": "{\"order_id\":\"A1001\"}"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_abc123",
+      "output": "{\"status\":\"shipped\",\"eta\":\"2026-05-15\"}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_order_status",
+      "description": "查询订单状态",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {"type": "string"}
+        },
+        "required": ["order_id"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
+```
+
+实际代码里通常不是手写这一段，而是维护一个 `input_list`：先追加用户消息，再追加模型返回的 `response.output`，最后追加 `function_call_output`。
+
+**Chat Completions 的常见格式：**
+
+```json
+{
+  "model": "gpt-4.1",
+  "messages": [
+    {"role": "system", "content": "你是一个订单查询助手。"},
+    {"role": "user", "content": "查询订单 A1001"}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_order_status",
+        "description": "查询订单状态",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "order_id": {"type": "string"}
+          },
+          "required": ["order_id"]
+        }
+      }
+    }
+  ]
+}
+```
+
+**两者对比：**
+
+| 维度 | Responses API | Chat Completions |
+|------|---------------|------------------|
+| 抽象方式 | 输入项、输出项、工具项统一建模 | 对话消息数组为核心 |
+| 工具结果回传 | `function_call_output` + `call_id` | `role: "tool"` + `tool_call_id` |
+| 状态衔接 | 可用 `previous_response_id` 连接上下文 | 通常由调用方维护完整 `messages` |
+| 适合场景 | Agent、多模态、工具链、结构化输出 | 传统聊天、兼容旧工程 |
+
+**面试回答重点：** OpenAI 的工具调用不是模型真的执行函数，而是模型输出“想调用哪个函数以及参数”。真正的函数执行、权限控制、超时重试、结果回填都在 Harness 层完成。
+
+---
+
+### 32｜Anthropic 的 Messages API 和 Tool Use 请求格式如何理解？
+
+**核心理解：** Anthropic 使用 Messages API，系统提示通常放在顶层 `system` 字段中，用户和助手消息放在 `messages` 数组中。工具定义使用 `tools`，工具参数 schema 字段叫 `input_schema`。
+
+**基本请求：**
+
+```json
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 1024,
+  "system": "你是一个严谨的订单查询助手。",
+  "messages": [
+    {
+      "role": "user",
+      "content": "帮我查一下订单 A1001 的状态"
+    }
+  ]
+}
+```
+
+**带工具的请求：**
+
+```json
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": "查询订单 A1001 的状态"
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_order_status",
+      "description": "查询订单状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "订单编号"
+          }
+        },
+        "required": ["order_id"]
+      }
+    }
+  ],
+  "tool_choice": {"type": "auto"}
+}
+```
+
+**模型返回工具调用时的典型结构：**
+
+```json
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "我需要查询订单系统。"
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_abc123",
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A1001"
+      }
+    }
+  ],
+  "stop_reason": "tool_use"
+}
+```
+
+**把工具结果传回模型：**
+
+```json
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": "查询订单 A1001 的状态"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_abc123",
+          "name": "get_order_status",
+          "input": {"order_id": "A1001"}
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_abc123",
+          "content": "{\"status\":\"shipped\",\"eta\":\"2026-05-15\"}"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**OpenAI 与 Anthropic Tool Use 对比：**
+
+| 维度 | OpenAI | Anthropic |
+|------|--------|-----------|
+| 工具定义字段 | `tools[].type = "function"` + `parameters` | `tools[].input_schema` |
+| 工具调用输出 | `function_call` 输出项 | `tool_use` 内容块 |
+| 参数形态 | 常见为 JSON 字符串 `arguments` | 通常是对象 `input` |
+| 工具结果回传 | `function_call_output` | `tool_result` |
+| 终止信号 | 响应输出中出现工具调用 | `stop_reason: "tool_use"` |
+
+**面试回答重点：** Anthropic 的消息 `content` 不是只能是字符串，也可以是内容块数组。工具调用和工具结果都是内容块，只是 `type` 不同。
+
+---
+
+### 33｜Tool Use 的通用执行循环应该怎么实现？
+
+**通用模式：** 不管是 OpenAI 还是 Anthropic，工具调用都可以抽象为同一个循环：调用模型 → 解析工具调用 → 执行本地工具 → 回填工具结果 → 再次调用模型，直到模型给出最终答案。
+
+```python
+def run_agent(user_input: str):
+    messages = [{"role": "user", "content": user_input}]
+
+    for _ in range(MAX_TURNS):
+        response = call_llm(messages, tools=TOOLS)
+        tool_calls = extract_tool_calls(response)
+
+        if not tool_calls:
+            return extract_final_text(response)
+
+        for call in tool_calls:
+            args = parse_and_validate_args(call)
+            result = execute_tool(call.name, args)
+            messages = append_tool_result(messages, call, result)
+
+    raise RuntimeError("Agent reached max turns")
+```
+
+**工程层需要负责的事情：**
+
+| 环节 | 关键点 |
+|------|--------|
+| 工具选择 | 由模型决定，但可用 `tool_choice` 强制、禁用或限定工具 |
+| 参数解析 | 对 JSON 做解析、schema 校验、默认值填充 |
+| 工具执行 | 加超时、重试、权限、人类确认、审计日志 |
+| 结果回传 | 用供应商要求的格式绑定原始 `call_id` / `tool_use_id` |
+| 循环退出 | 没有工具调用、达到最大轮次、超时、token 超预算或出现不可恢复错误 |
+
+**并行工具调用：** 如果模型一次返回多个工具调用，可以并行执行互不依赖的读操作；写操作、支付、发邮件、部署等有副作用的工具应串行执行并加入确认机制。
+
+---
+
+### 34｜原生 JSON 格式解析怎么做？如何避免解析失败？
+
+**核心原则：** 能用原生结构化输出就不要让模型“在 Markdown 里写 JSON”。工程上要优先使用 JSON Schema / tool schema 约束输出，再用本地解析器和校验器兜底。
+
+**OpenAI 原生结构化输出示例：**
+
+```json
+{
+  "model": "gpt-4.1",
+  "input": "从文本中抽取订单号和用户诉求：订单 A1001 怎么还没发货？",
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "name": "order_intent",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {"type": "string"},
+          "intent": {"type": "string", "enum": ["query_status", "refund", "complaint"]}
+        },
+        "required": ["order_id", "intent"],
+        "additionalProperties": false
+      }
+    }
+  }
+}
+```
+
+**Anthropic 结构化输出常见做法：**
+
+- 简单场景：在 prompt 中明确“只返回 JSON”，并用停止词或输出约束降低额外文本概率
+- 强约束场景：把“返回结构化对象”设计成一个工具，让模型调用该工具，业务侧读取 `tool_use.input`
+- 生产场景：对返回对象做 schema 校验，不符合则要求模型基于错误信息重试一次
+
+**Python 原生解析与校验：**
+
+```python
+import json
+from jsonschema import validate, ValidationError
+
+schema = {
+    "type": "object",
+    "properties": {
+        "order_id": {"type": "string"},
+        "intent": {"type": "string", "enum": ["query_status", "refund", "complaint"]}
+    },
+    "required": ["order_id", "intent"],
+    "additionalProperties": False
+}
+
+def parse_json_payload(raw: str) -> dict:
+    try:
+        data = json.loads(raw)
+        validate(instance=data, schema=schema)
+        return data
+    except json.JSONDecodeError as e:
+        raise ValueError(f"模型返回的不是合法 JSON: {e}") from e
+    except ValidationError as e:
+        raise ValueError(f"JSON 不符合业务 schema: {e.message}") from e
+```
+
+**TypeScript 原生解析与校验：**
+
+```ts
+import { z } from "zod";
+
+const OrderIntent = z.object({
+  order_id: z.string(),
+  intent: z.enum(["query_status", "refund", "complaint"])
+});
+
+function parseJsonPayload(raw: string) {
+  const data = JSON.parse(raw);
+  return OrderIntent.parse(data);
+}
+```
+
+**不要这样做：**
+
+- 不要用正则从大段自然语言里硬抠 JSON
+- 不要相信模型返回的参数一定符合 schema
+- 不要把解析失败直接吞掉并继续执行工具
+- 不要对有副作用的工具使用“猜测修复后继续执行”
+
+**解析失败处理策略：**
+
+| 失败类型 | 处理方式 |
+|----------|----------|
+| 非法 JSON | 把错误信息和原始输出传回模型，要求只修复格式 |
+| schema 不匹配 | 明确指出缺失字段、类型错误、枚举越界 |
+| 参数危险 | 拒绝执行，进入人工确认或安全策略 |
+| 多次失败 | 降级为人工处理或返回可解释错误 |
+
+**面试回答重点：** JSON 解析是工程问题，不是 prompt 问题。Prompt 只能提高概率，真正可靠的系统必须有 schema、解析、校验、错误恢复和安全控制。
+
+**参考文档：** OpenAI Responses API Tools、OpenAI Structured Outputs、Anthropic Messages API、Anthropic Tool Use、Anthropic Structured Outputs。
+
+---
+
 ## 总结
 
 本文涵盖了 AI Agent 和 RAG 的高频面试题：
@@ -1555,13 +1969,15 @@ trace_event = {
 | MCP 协议 | 统一工具协议、通信机制、MCP Server 实现 |
 | Skills | Skill 系统设计、Prompt 工程技巧 |
 | Harness 工程 | 循环控制、上下文压缩、安全权限、生产级架构 |
+| API 请求格式 | OpenAI / Anthropic 消息结构、Tool Use 循环、原生 JSON 解析 |
 
 **面试建议：**
 
 - 理解 Agent 的核心概念，能画出工作流程图
 - 熟悉 ReAct 和 Plan-and-Execute 的区别，能结合场景选择
 - 掌握工具调用的设计和错误处理
+- 熟悉 OpenAI 与 Anthropic 的 Tool Use 请求格式，能解释工具调用不是模型执行函数
 - 了解 RAG 的完整链路和各环节优化方法
 - 理解 MCP 协议的设计思想，能对比 Function Calling
-- 了解 Harness 的工程挑战：上下文管理、安全控制、可观测性
+- 了解 Harness 的工程挑战：上下文管理、安全控制、可观测性、JSON 解析与 schema 校验
 - 能够结合实际场景分析问题，给出系统设计方案
