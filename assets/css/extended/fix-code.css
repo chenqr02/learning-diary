@@ -115,3 +115,17 @@
         line-height: 1.35;
     }
 }
+
+/* Homepage section headers */
+.home-section {
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--tertiary);
+    color: var(--primary);
+}

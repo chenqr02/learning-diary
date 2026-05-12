@@ -5,6 +5,7 @@ theme: PaperMod
 enableFuture: true
 
 params:
+  mainSections: ["mianshi", "notes"]
   homeInfoParams:
     Title: "A journey of a thousand miles"
     Content: "Begins with a single step"
