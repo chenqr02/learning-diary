@@ -109,7 +109,7 @@ $$
 
 {{< rawhtml >}}
 $$
-P(x_1, x_2, \ldots, x_T) = \prod_t P(x_t \mid x_{<t})
+P(x_1, x_2, \ldots, x_T) = \prod_t P(x_t \mid x_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -117,7 +117,7 @@ $$
 
 {{< rawhtml >}}
 $$
-\min -\sum_t \log P_{\theta}(x_t \mid x_{<t})
+\min -\sum_t \log P_{\theta}(x_t \mid x_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -125,13 +125,13 @@ $$
 
 ### 2.2 从最大似然到交叉熵
 
-关键点在于，真实分布并没有消失，而是被 one-hot 标签"隐含"进去了。设在第 $t$ 个位置，真实分布为 $P_t(\cdot)$，模型预测分布为 $Q_t(\cdot) = P_{\theta}(\cdot \mid x_{<t})$。
+关键点在于，真实分布并没有消失，而是被 one-hot 标签"隐含"进去了。设在第 $t$ 个位置，真实分布为 $P_t(\cdot)$，模型预测分布为 $Q_t(\cdot) = P_{\theta}(\cdot \mid x_{\lt t})$。
 
 在 next-token prediction 里，监督信号通常是 one-hot 标签。假设真实 token 是 $y$，代入交叉熵定义：
 
 {{< rawhtml >}}
 $$
-H(P_t, Q_t) = - \sum_i P_t(i)\log Q_t(i) = - \log P_{\theta}(x_t = y \mid x_{<t})
+H(P_t, Q_t) = - \sum_i P_t(i)\log Q_t(i) = - \log P_{\theta}(x_t = y \mid x_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -149,7 +149,7 @@ $$
 
 {{< rawhtml >}}
 $$
-CE = -\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{<t}), \quad PPL = \exp(CE)
+CE = -\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{\lt t}), \quad PPL = \exp(CE)
 $$
 {{< /rawhtml >}}
 
@@ -694,7 +694,7 @@ DeepMind 发现许多模型其实训练数据不足。对于给定算力预算�
 
 {{< rawhtml >}}
 $$
-PPL = \exp\left(-\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{<t})\right)
+PPL = \exp\left(-\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{\lt t})\right)
 $$
 {{< /rawhtml >}}
 

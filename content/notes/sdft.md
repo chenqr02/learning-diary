@@ -105,7 +105,7 @@ $$
 
 {{< rawhtml >}}
 $$
--\log \pi_\theta(y_t | x, y_{<t})
+-\log \pi_\theta(y_t | x, y_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -115,9 +115,9 @@ $$
 $$
 D_{KL}
 \left(
-\pi_{\theta_0}(\cdot | x, y_{<t})
+\pi_{\theta_0}(\cdot | x, y_{\lt t})
 \Vert
-\pi_{\theta}(\cdot | x, y_{<t})
+\pi_{\theta}(\cdot | x, y_{\lt t})
 \right)
 $$
 {{< /rawhtml >}}
@@ -130,15 +130,15 @@ $$
 \mathcal{L}_{SDFT}
 &= -
 \sum_t
-\log \pi_\theta(y_t | x, y_{<t}) \\
+\log \pi_\theta(y_t | x, y_{\lt t}) \\
 &\quad +
 \lambda
 \sum_t
 D_{KL}
 \left(
-\pi_{\theta_0}(\cdot | x, y_{<t})
+\pi_{\theta_0}(\cdot | x, y_{\lt t})
 \Vert
-\pi_{\theta}(\cdot | x, y_{<t})
+\pi_{\theta}(\cdot | x, y_{\lt t})
 \right)
 \end{aligned}
 $$
@@ -200,7 +200,7 @@ SFT 是“向标注答案靠近”；SDFT 是“向标注答案靠近，但尽�
 
 {{< rawhtml >}}
 $$
-\pi_{\theta}(y_t | x, y_{<t})
+\pi_{\theta}(y_t | x, y_{\lt t})
 $$
 {{< /rawhtml >}}
 

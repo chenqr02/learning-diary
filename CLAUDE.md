@@ -25,7 +25,7 @@ $$
 Reasons:
 
 - `_` inside formulas can be parsed as Markdown emphasis before KaTeX sees it.
-- `<t>` or similar token notation can be parsed as HTML.
+- `<t>` or similar token notation can be parsed as HTML. In formulas, write `x_{\lt t}` or `y_{\lt t}` instead of `x_{<t}` or `y_{<t}`.
 - A standalone `=` line inside a formula can be parsed as a Markdown setext heading underline.
 
 For multi-line equations, prefer `aligned` and avoid a bare line containing only `=`:
@@ -48,6 +48,8 @@ After adding or editing math-heavy content, run:
 ```sh
 hugo
 rg -n '<p>\$\$|\$\$</p>|<em>|id="mathcal|id="nabla|id="frac|id="sum|id="pi|id="-log' public/notes public/mianshi
+rg -n -F 'x_{<t}' content public/notes public/mianshi
+rg -n -F 'y_{<t}' content public/notes public/mianshi
 ```
 
-The second command should produce no output.
+The `rg` commands should produce no output.

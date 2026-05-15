@@ -69,7 +69,7 @@ $$
 
 {{< rawhtml >}}
 $$
-y_{<t}
+y_{\lt t}
 $$
 {{< /rawhtml >}}
 
@@ -77,7 +77,7 @@ student 和 teacher 都会在同一个状态：
 
 {{< rawhtml >}}
 $$
-(x, y_{<t})
+(x, y_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -85,13 +85,13 @@ $$
 
 {{< rawhtml >}}
 $$
-\pi_\theta(\cdot | x, y_{<t})
+\pi_\theta(\cdot | x, y_{\lt t})
 $$
 {{< /rawhtml >}}
 
 {{< rawhtml >}}
 $$
-\pi_T(\cdot | x, y_{<t})
+\pi_T(\cdot | x, y_{\lt t})
 $$
 {{< /rawhtml >}}
 
@@ -107,9 +107,9 @@ $$
 \sum_{t=1}^{L}
 D_{KL}
 \left(
-\pi_\theta(\cdot | x, y_{<t})
+\pi_\theta(\cdot | x, y_{\lt t})
 \Vert
-\pi_T(\cdot | x, y_{<t})
+\pi_T(\cdot | x, y_{\lt t})
 \right)
 \right]
 $$
@@ -149,9 +149,9 @@ full-vocabulary OPD 会在每个 student-generated prefix 上计算完整词表�
 $$
 D_{KL}
 \left(
-\pi_\theta(\cdot | x, y_{<t})
+\pi_\theta(\cdot | x, y_{\lt t})
 \Vert
-\pi_T(\cdot | x, y_{<t})
+\pi_T(\cdot | x, y_{\lt t})
 \right)
 $$
 {{< /rawhtml >}}
@@ -166,7 +166,7 @@ Top-k OPD 是折中方案。它不看完整词表，而是只选一个局部 tok
 
 {{< rawhtml >}}
 $$
-S_t = TopK(\pi_\theta(\cdot | x, y_{<t}))
+S_t = TopK(\pi_\theta(\cdot | x, y_{\lt t}))
 $$
 {{< /rawhtml >}}
 
@@ -229,7 +229,7 @@ entropy 衡量分布的不确定性。teacher 和 student 在同一个 prefix �
 
 {{< rawhtml >}}
 $$
-\Delta H_t = H(\pi_\theta(\cdot | x, y_{<t})) - H(\pi_T(\cdot | x, y_{<t}))
+\Delta H_t = H(\pi_\theta(\cdot | x, y_{\lt t})) - H(\pi_T(\cdot | x, y_{\lt t}))
 $$
 {{< /rawhtml >}}
 
