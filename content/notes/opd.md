@@ -35,54 +35,71 @@ OPD 试图解决的正是这个问题：
 
 设有一个输入 prompt：
 
+{{< rawhtml >}}
 $$
 x
 $$
+{{< /rawhtml >}}
 
 student 模型为：
 
+{{< rawhtml >}}
 $$
 \pi_\theta
 $$
+{{< /rawhtml >}}
 
 teacher 模型为：
 
+{{< rawhtml >}}
 $$
 \pi_T
 $$
+{{< /rawhtml >}}
 
 student 按当前策略自回归采样出回答：
 
+{{< rawhtml >}}
 $$
 y = (y_1, y_2, \ldots, y_L) \sim \pi_\theta(\cdot | x)
 $$
+{{< /rawhtml >}}
 
 在第 `t` 步，已有前缀：
 
+{{< rawhtml >}}
 $$
 y_{<t}
 $$
+{{< /rawhtml >}}
 
 student 和 teacher 都会在同一个状态：
 
+{{< rawhtml >}}
 $$
 (x, y_{<t})
 $$
+{{< /rawhtml >}}
 
 上给出下一 token 分布：
 
+{{< rawhtml >}}
 $$
 \pi_\theta(\cdot | x, y_{<t})
 $$
+{{< /rawhtml >}}
 
+{{< rawhtml >}}
 $$
 \pi_T(\cdot | x, y_{<t})
 $$
+{{< /rawhtml >}}
 
 OPD 的目标就是在这些 student-generated states 上，让 student 的下一 token 分布靠近 teacher。
 
 常见写法是最小化 student rollout 上的逐 token reverse KL：
 
+{{< rawhtml >}}
 $$
 \mathcal{L}_{OPD}
 = \mathbb{E}_{y \sim \pi_\theta}
@@ -96,6 +113,7 @@ D_{KL}
 \right)
 \right]
 $$
+{{< /rawhtml >}}
 
 这里使用 reverse KL 很关键。它有明显的 mode-seeking 特性：student 更倾向于把概率质量集中到 teacher 认为高概率的区域，而不是覆盖 teacher 的全部可能模式。
 
@@ -109,9 +127,11 @@ $$
 
 student 在第 `t` 步实际采样出了 token：
 
+{{< rawhtml >}}
 $$
 y_t
 $$
+{{< /rawhtml >}}
 
 那么只在这个 token 上读取 student 和 teacher 的 log probability，并构造单 token 的监督信号。直观上，就是问 teacher：
 
@@ -125,6 +145,7 @@ $$
 
 full-vocabulary OPD 会在每个 student-generated prefix 上计算完整词表上的 KL：
 
+{{< rawhtml >}}
 $$
 D_{KL}
 \left(
@@ -133,6 +154,7 @@ D_{KL}
 \pi_T(\cdot | x, y_{<t})
 \right)
 $$
+{{< /rawhtml >}}
 
 它的好处是梯度最密集，信息最完整。teacher 不只是评价 student 已经采样出来的 token，还会告诉 student 整个 vocabulary 上哪些 token 更应该被提升或压低。
 
@@ -142,9 +164,11 @@ $$
 
 Top-k OPD 是折中方案。它不看完整词表，而是只选一个局部 token 集合，例如 student 当前分布里概率最高的 `k` 个 token：
 
+{{< rawhtml >}}
 $$
 S_t = TopK(\pi_\theta(\cdot | x, y_{<t}))
 $$
+{{< /rawhtml >}}
 
 然后把 student 和 teacher 在这个集合上的概率重新归一化，再计算子集 KL。
 
@@ -160,21 +184,27 @@ Top-k OPD 背后的判断是：OPD 最重要的训练信号往往集中在 stude
 
 设 student 在第 `t` 步的 top-k token 集合为：
 
+{{< rawhtml >}}
 $$
 S_t
 $$
+{{< /rawhtml >}}
 
 teacher 的 top-k token 集合为：
 
+{{< rawhtml >}}
 $$
 T_t
 $$
+{{< /rawhtml >}}
 
 则 overlap ratio 衡量二者交集占比：
 
+{{< rawhtml >}}
 $$
 OR_t = \frac{|S_t \cap T_t|}{k}
 $$
+{{< /rawhtml >}}
 
 如果 overlap ratio 很低，说明 student 和 teacher 在同一个前缀上认为“最可能的下一 token”差异很大。此时 teacher 的 token 级信号不一定能有效推动 student，因为两者甚至不在同一片候选空间里。
 
@@ -197,9 +227,11 @@ entropy 衡量分布的不确定性。teacher 和 student 在同一个 prefix �
 
 熵差可以写成：
 
+{{< rawhtml >}}
 $$
 \Delta H_t = H(\pi_\theta(\cdot | x, y_{<t})) - H(\pi_T(\cdot | x, y_{<t}))
 $$
+{{< /rawhtml >}}
 
 如果 entropy gap 很大，说明二者不仅偏好的 token 不一样，连“该不该自信”都不一样。成功的 OPD 往往会伴随 entropy gap 缩小，表示 student 不只是模仿 teacher 的答案倾向，也在接近 teacher 的局部不确定性结构。
 

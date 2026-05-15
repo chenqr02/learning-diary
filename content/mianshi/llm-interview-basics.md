@@ -20,25 +20,31 @@ summary: '从 KL 散度、交叉熵到优化器，从偏差-方差到 Scaling La
 
 **熵**
 
+{{< rawhtml >}}
 $$
 H(P) = - \sum_x P(x) \log P(x)
 $$
+{{< /rawhtml >}}
 
 分布 `P` 自身的不确定性。分布越均匀，熵通常越大；分布越集中，熵越小。
 
 **交叉熵**
 
+{{< rawhtml >}}
 $$
 H(P, Q) = - \sum_x P(x) \log Q(x)
 $$
+{{< /rawhtml >}}
 
 如果样本真实来自 `P`，但我们用 `Q` 去编码它，平均需要多少信息量。
 
 **KL 散度**
 
+{{< rawhtml >}}
 $$
 D_{KL}(P \parallel Q) = \sum_x P(x) \log \frac{P(x)}{Q(x)} = \sum_x P(x)[\log P(x) - \log Q(x)]
 $$
+{{< /rawhtml >}}
 
 用 `Q` 近似 `P` 时，多付出的那部分"编码代价"。
 
@@ -46,15 +52,19 @@ $$
 
 从 KL 散度出发：
 
+{{< rawhtml >}}
 $$
 D_{KL}(P \parallel Q) = \sum_x P(x)[\log P(x) - \log Q(x)] = -H(P) + H(P, Q)
 $$
+{{< /rawhtml >}}
 
 因此：
 
+{{< rawhtml >}}
 $$
 H(P, Q) = H(P) + D_{KL}(P \parallel Q)
 $$
+{{< /rawhtml >}}
 
 这是面试里最关键的一条关系。
 
@@ -70,17 +80,21 @@ $$
 
 如果分类任务中真实标签是 one-hot，且正确类别为 `y`，则交叉熵化简为：
 
+{{< rawhtml >}}
 $$
 H(P, Q) = -\log Q(y)
 $$
+{{< /rawhtml >}}
 
 只看模型给正确类别分配的概率，概率越大，损失越小。
 
 ### 1.5 为什么 KL 散度不是对称的
 
+{{< rawhtml >}}
 $$
 D_{KL}(P \parallel Q) \ne D_{KL}(Q \parallel P)
 $$
+{{< /rawhtml >}}
 
 因为它衡量的是"用 Q 去近似 P"的代价，而不是一个普通距离。在生成模型中：
 
@@ -93,15 +107,19 @@ $$
 
 语言模型做的是条件概率建模：
 
+{{< rawhtml >}}
 $$
 P(x_1, x_2, \ldots, x_T) = \prod_t P(x_t \mid x_{<t})
 $$
+{{< /rawhtml >}}
 
 训练时，目标是最大化训练语料的似然：
 
+{{< rawhtml >}}
 $$
 \min -\sum_t \log P_{\theta}(x_t \mid x_{<t})
 $$
+{{< /rawhtml >}}
 
 而这正是 token 级别的交叉熵。
 
@@ -111,23 +129,29 @@ $$
 
 在 next-token prediction 里，监督信号通常是 one-hot 标签。假设真实 token 是 $y$，代入交叉熵定义：
 
+{{< rawhtml >}}
 $$
 H(P_t, Q_t) = - \sum_i P_t(i)\log Q_t(i) = - \log P_{\theta}(x_t = y \mid x_{<t})
 $$
+{{< /rawhtml >}}
 
 对整个序列：
 
+{{< rawhtml >}}
 $$
 L = \sum_t H(P_t, Q_t)
 $$
+{{< /rawhtml >}}
 
 因此，这里的训练目标既可以叫 token-level cross entropy，也可以叫 negative log-likelihood (NLL)。在 one-hot 标签的分类建模里，这两者是等价的。
 
 ### 2.3 和 perplexity 的关系
 
+{{< rawhtml >}}
 $$
 CE = -\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{<t}), \quad PPL = \exp(CE)
 $$
+{{< /rawhtml >}}
 
 交叉熵越小，困惑度越低，表示模型越擅长预测下一个 token。
 
@@ -191,6 +215,7 @@ $$
 
 深层网络中的梯度传播，本质上是很多局部导数的连乘：
 
+{{< rawhtml >}}
 $$
 \frac{\partial \mathcal{L}}{\partial W_1}
 = \frac{\partial \mathcal{L}}{\partial h_L}
@@ -199,6 +224,7 @@ $$
 \cdots
 \frac{\partial h_1}{\partial W_1}
 $$
+{{< /rawhtml >}}
 
 连乘结果长期大于 1，梯度会爆炸；长期小于 1，梯度会消失。
 
@@ -222,9 +248,11 @@ $$
 
 激活函数进入饱和区，导致局部导数接近 0。以 sigmoid 为例：
 
+{{< rawhtml >}}
 $$
 \sigma'(x) = \sigma(x)(1-\sigma(x))
 $$
+{{< /rawhtml >}}
 
 导数最大值只有 $0.25$。一旦输入落到两端，反向梯度很难通过它传播。
 
@@ -292,17 +320,21 @@ GIL 是 CPython 里的全局解释器锁。同一个 Python 进程内，任意�
 
 ### 11.1 从最基本的梯度下降开始
 
+{{< rawhtml >}}
 $$
 \theta_{t+1} = \theta_t - \eta g_t
 $$
+{{< /rawhtml >}}
 
 沿负梯度方向更新。但真正训练深度网络时会遇到问题：不同方向曲率差异大、梯度噪声大、某些方向震荡严重、稀疏梯度场景下更新不均衡。
 
 ### 11.2 SGD
 
+{{< rawhtml >}}
 $$
 \theta_{t+1} = \theta_t - \eta g_t
 $$
+{{< /rawhtml >}}
 
 简单、内存开销小、泛化能力好。但对学习率敏感，在狭长谷底里容易来回震荡。
 
@@ -310,9 +342,11 @@ $$
 
 在 SGD 基础上加一个"速度项"：
 
+{{< rawhtml >}}
 $$
 v_{t+1} = \beta v_t + (1-\beta) g_t, \quad \theta_{t+1} = \theta_t - \eta v_{t+1}
 $$
+{{< /rawhtml >}}
 
 如果某个方向上长期梯度一致，Momentum 会不断积累速度；如果梯度来回震荡，历史平均会起到平滑作用。
 
@@ -320,17 +354,23 @@ $$
 
 Adam 同时维护梯度的一阶矩和二阶矩估计：
 
+{{< rawhtml >}}
 $$
 m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t, \quad v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2
 $$
+{{< /rawhtml >}}
 
+{{< rawhtml >}}
 $$
 \hat m_t = \frac{m_t}{1-\beta_1^t}, \quad \hat v_t = \frac{v_t}{1-\beta_2^t}
 $$
+{{< /rawhtml >}}
 
+{{< rawhtml >}}
 $$
 \theta_{t+1} = \theta_t - \eta \frac{\hat m_t}{\sqrt{\hat v_t} + \varepsilon}
 $$
+{{< /rawhtml >}}
 
 - 用 $m_t$ 做动量平滑
 - 用 $v_t$ 感知每个参数维度的梯度尺度
@@ -340,9 +380,11 @@ $$
 
 在 Adam 里，把 L2 正则直接加进梯度，会被二阶矩缩放，行为就变了。AdamW 把权重衰减从梯度更新里解耦：
 
+{{< rawhtml >}}
 $$
 \theta_{t+1} = \theta_t - \eta \frac{\hat m_t}{\sqrt{\hat v_t} + \varepsilon} - \eta \lambda \theta_t
 $$
+{{< /rawhtml >}}
 
 优化器负责按梯度更新，weight decay 负责单独收缩参数，二者职责分开。
 
@@ -377,9 +419,11 @@ AdamW 的核心不是"更快"，而是"weight decay 的语义更正确"。
 
 期望泛化误差可以分解为：
 
+{{< rawhtml >}}
 $$
 \mathbb{E}[(y - \hat{f})^2] = \underbrace{(\mathbb{E}[\hat{f}] - f)^2}_{\text{Bias}^2} + \underbrace{\mathbb{E}[(\hat{f} - \mathbb{E}[\hat{f}])^2]}_{\text{Variance}} + \underbrace{\sigma^2}_{\text{Irreducible Error}}
 $$
+{{< /rawhtml >}}
 
 - **Bias（偏差）**：模型的平均预测与真实值的偏离程度。高 bias 意味着模型对数据做了过于简化的假设。
 - **Variance（方差）**：模型对训练集波动的敏感程度。高 variance 意味着训练集稍微变化，模型预测就有很大差异。
@@ -387,7 +431,9 @@ $$
 
 ### 12.2 Tradeoff 的本质
 
+{{< rawhtml >}}
 $$\text{总误差} = \text{Bias}^2 + \text{Variance} + \text{Noise}$$
+{{< /rawhtml >}}
 
 模型越复杂，bias 越低但 variance 越高。最佳点是在二者之间取得平衡。过拟合就是模型太复杂（低 bias、高 variance），欠拟合就是模型太简单（高 bias、低 variance）。
 
@@ -420,17 +466,21 @@ $$\text{总误差} = \text{Bias}^2 + \text{Variance} + \text{Noise}$$
 
 **L1 正则化（Lasso）**
 
+{{< rawhtml >}}
 $$
 L = L_{data} + \lambda \sum |w_i|
 $$
+{{< /rawhtml >}}
 
 在 loss 里加上参数绝对值之和。L1 鼓励稀疏解，很多不重要的参数被推到 0，天然有特征选择能力。在优化上，L1 导数 $\partial |w|/\partial w = \pm 1$，在 0 处不可导，依赖次梯度。
 
 **L2 正则化（Ridge / Weight Decay）**
 
+{{< rawhtml >}}
 $$
 L = L_{data} + \frac{\lambda}{2} \sum w_i^2
 $$
+{{< /rawhtml >}}
 
 在 loss 里加上参数平方和。L2 鼓励小参数但不强制到 0，导数是 $\lambda w$，相当于每次更新时让参数往 0 方向缩一点——这就是 weight decay 的本质。
 
@@ -462,17 +512,21 @@ $$
 
 ### 14.2 Xavier / Glorot 初始化
 
+{{< rawhtml >}}
 $$
 W \sim \mathcal{U}\left[-\frac{\sqrt{6}}{\sqrt{n_{in} + n_{out}}}, \frac{\sqrt{6}}{\sqrt{n_{in} + n_{out}}}\right]
 $$
+{{< /rawhtml >}}
 
 假设激活函数在 0 附近近似线性（如 tanh、sigmoid 未饱和区）。让前向和反向传播中信号方差保持稳定。
 
 ### 14.3 Kaiming / He 初始化
 
+{{< rawhtml >}}
 $$
 W \sim \mathcal{N}\left(0, \frac{2}{n_{in}}\right)
 $$
+{{< /rawhtml >}}
 
 专门针对 ReLU 类激活函数设计。因为 ReLU 会把一半神经元输出置零，方差天然折半，所以初始化时需要补偿这一损失。PyTorch 里 `nn.Linear` 默认常常接近 Kaiming 均匀分布。
 
@@ -493,9 +547,11 @@ $$
 
 ### 15.2 Temperature Scaling
 
+{{< rawhtml >}}
 $$
 p_i = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}
 $$
+{{< /rawhtml >}}
 
 - $T \to 0$：分布变得极端尖锐，等价于 greedy
 - $T = 1$：保持原始分布
@@ -518,9 +574,11 @@ Temperature 不改变相对排序，只改变分布的尖锐程度。
 
 ### 15.6 Repetition Penalty
 
+{{< rawhtml >}}
 $$
 p_i \propto \exp(z_i / (T \cdot \alpha^{I_i}))
 $$
+{{< /rawhtml >}}
 
 其中 $I_i$ 是该 token 在已生成序列中出现的次数，$\alpha > 1$ 时重复越多的 token 被惩罚越重。注意它是修改 logits 而非后处理。
 
@@ -561,9 +619,11 @@ BERT 使用的 tokenizer。
 
 与 BPE 的区别在于：BPE 合并最高频的相邻 token pair，WordPiece 合并能最大提高训练数据似然的 pair：
 
+{{< rawhtml >}}
 $$
 \text{Score}(a, b) = \frac{\text{count}(a, b)}{\text{count}(a) \cdot \text{count}(b)}
 $$
+{{< /rawhtml >}}
 
 本质是互信息驱动的合并，而非纯频率驱动。
 
@@ -596,9 +656,11 @@ SentencePiece 支持的另一种方法，从大词表开始逐步剪枝。初始
 
 模型性能与模型参数量 $N$、数据量 $D$、计算量 $C$ 之间存在可预测的幂律关系：
 
+{{< rawhtml >}}
 $$
 L(N, D) \propto N^{-\alpha} + D^{-\beta}
 $$
+{{< /rawhtml >}}
 
 最关键的结论：**模型性能主要由计算预算（参数量 × 训练数据量）决定，同等算力下最优分配是同时增大模型和数据，而非只堆参数。**
 
@@ -630,9 +692,11 @@ DeepMind 发现许多模型其实训练数据不足。对于给定算力预算�
 
 ### 18.1 Perplexity（PPL）
 
+{{< rawhtml >}}
 $$
 PPL = \exp\left(-\frac{1}{T}\sum_t \log P_{\theta}(x_t \mid x_{<t})\right)
 $$
+{{< /rawhtml >}}
 
 语言模型最核心的内在评估指标。越低说明模型对测试数据的预测能力越强。但 PPL 低不等于实际任务表现好——它只能衡量模型对 token 分布的拟合程度，不能衡量事实性、有用性和安全性。
 
@@ -640,9 +704,11 @@ $$
 
 机器翻译评估指标，基于 n-gram 精确率（Precision）：
 
+{{< rawhtml >}}
 $$
 BLEU = BP \cdot \exp\left(\sum_{n=1}^N w_n \log p_n\right)
 $$
+{{< /rawhtml >}}
 
 $p_n$ 是 n-gram 精确率，$BP$ 是长度惩罚。偏向参考翻译中出现的词组，对词汇多样性和语义关注不足。
 
@@ -650,21 +716,27 @@ $p_n$ 是 n-gram 精确率，$BP$ 是长度惩罚。偏向参考翻译中出现�
 
 文本摘要评估指标，基于 n-gram 召回率（Recall）：
 
+{{< rawhtml >}}
 $$
 ROUGE\text{-}N = \frac{\sum \text{count}_{match}(n\text{-gram})}{\sum \text{count}(n\text{-gram})}
 $$
+{{< /rawhtml >}}
 
 衡量生成结果覆盖了多少参考摘要中的内容。ROUGE-L 额外考虑最长公共子序列。
 
 ### 18.4 精确率、召回率、F1
 
+{{< rawhtml >}}
 $$
 \text{Precision} = \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN}
 $$
+{{< /rawhtml >}}
 
+{{< rawhtml >}}
 $$
 F1 = \frac{2 \cdot P \cdot R}{P + R}
 $$
+{{< /rawhtml >}}
 
 - **Precision**：预测为正类的样本中，有多少真是正类（"我挑的对不对？"）
 - **Recall**：真实正类样本中，有多少被正确捡出来了（"我漏了没有？"）
@@ -727,9 +799,11 @@ Few-shot 的效果通常优于 zero-shot，但示例数量增加到一定程度�
 
 对比学习的核心是"拉近正样本、推远负样本"：
 
+{{< rawhtml >}}
 $$
 L = -\log \frac{\exp(q \cdot k^+ / \tau)}{\sum_{i=0}^K \exp(q \cdot k_i / \tau)}
 $$
+{{< /rawhtml >}}
 
 本质是一个 K+1 类的 softmax 分类问题：从 K+1 个样本中选出正确的那个。$\tau$ 是 temperature，控制分布的尖锐程度。
 
@@ -740,17 +814,21 @@ $$
 
 ### 20.2 Triplet Loss
 
+{{< rawhtml >}}
 $$
 L = \max(0, d(a, p) - d(a, n) + margin)
 $$
+{{< /rawhtml >}}
 
 对每个锚点 $a$，拉近正样本 $p$、推远负样本 $n$。要求正例距离 + margin < 负例距离。
 
 ### 20.3 Focal Loss
 
+{{< rawhtml >}}
 $$
 L = -\alpha (1 - p_t)^\gamma \log(p_t)
 $$
+{{< /rawhtml >}}
 
 标准交叉熵对容易分类的样本也产生损失，Focal Loss 通过 $(1-p_t)^\gamma$ 降低易分样本的权重，让模型更关注难分类样本。在类别不平衡和目标检测中效果显著。
 

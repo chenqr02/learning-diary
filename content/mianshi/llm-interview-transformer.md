@@ -16,9 +16,11 @@ Transformer 面试里最容易被追问的，不是死记概念，而是"为什�
 
 标准 scaled dot-product attention：
 
+{{< rawhtml >}}
 $$
 \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
 $$
+{{< /rawhtml >}}
 
 ### 1.1 从方差角度理解
 
@@ -36,9 +38,11 @@ softmax 对输入尺度很敏感。如果输入特别大，概率分布会变得
 
 ## 二、为什么要分成 Q、K、V 三个矩阵
 
+{{< rawhtml >}}
 $$
 Q = XW_Q, \quad K = XW_K, \quad V = XW_V
 $$
+{{< /rawhtml >}}
 
 - **Q**：当前 token 想查询什么
 - **K**：每个 token 暴露什么"可匹配信号"
@@ -53,13 +57,17 @@ attention 的过程可以理解为两步：先用 $Q$ 和 $K$ 算匹配程度，
 
 ## 三、多头注意力为什么有效
 
+{{< rawhtml >}}
 $$
 \text{head}_i = \text{Attention}(QW_i^Q, KW_i^K, VW_i^V)
 $$
+{{< /rawhtml >}}
 
+{{< rawhtml >}}
 $$
 \text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)W^O
 $$
+{{< /rawhtml >}}
 
 如果只有单头，模型只能在一个注意力模式下工作。多头注意力允许模型在不同子空间并行关注不同关系：语法依赖、指代关系、位置邻近、长距离语义关联。
 
@@ -81,17 +89,21 @@ $$
 
 ### 5.2 BatchNorm
 
+{{< rawhtml >}}
 $$
 y = \gamma \cdot \frac{x - \mu_{batch}}{\sqrt{\sigma_{batch}^2 + \varepsilon}} + \beta
 $$
+{{< /rawhtml >}}
 
 统计量来自 batch 维度。在 CV 里表现很好，但在 NLP / LLM 里不主流：序列长度不一、micro-batch 常很小、多卡训练时 batch 统计更复杂。
 
 ### 5.3 LayerNorm
 
+{{< rawhtml >}}
 $$
 y = \gamma \cdot \frac{x - \mu_{layer}}{\sqrt{\sigma_{layer}^2 + \varepsilon}} + \beta
 $$
+{{< /rawhtml >}}
 
 对单个样本自身的 hidden dimension 做归一化。不依赖 batch 大小，训练和推理行为一致，特别适合 Transformer。
 
@@ -99,9 +111,11 @@ $\gamma$ 控制缩放，$\beta$ 控制平移，相当于让网络在"先标准�
 
 ### 5.4 RMSNorm
 
+{{< rawhtml >}}
 $$
 \text{RMS}(x) = \sqrt{\frac{1}{d}\sum_i x_i^2 + \varepsilon}, \quad y = \gamma \cdot \frac{x}{\text{RMS}(x)}
 $$
+{{< /rawhtml >}}
 
 和 LayerNorm 的主要区别：LayerNorm 先减均值再除标准差，RMSNorm 不减均值，只按均方根做尺度归一化。计算更简单，实践中效果通常足够好，在很多 LLM 里成为主流选择。
 
@@ -111,17 +125,21 @@ Norm 放在残差块的前面还是后面，会直接影响梯度传播路径和
 
 ### 6.1 Post-Norm
 
+{{< rawhtml >}}
 $$
 x_{l+1} = \text{LN}(x_l + F(x_l))
 $$
+{{< /rawhtml >}}
 
 先经过子层变换，再和残差相加，最后做归一化。原始 Transformer 论文中常见，但深层时更容易训练不稳——残差主干本来是给梯度提供"短路径"的，但 Post-Norm 里残差相加后马上又经过一次 LayerNorm。
 
 ### 6.2 Pre-Norm
 
+{{< rawhtml >}}
 $$
 x_{l+1} = x_l + F(\text{LN}(x_l))
 $$
+{{< /rawhtml >}}
 
 先对输入做归一化，再送进子层，最后和原始残差直接相加。主残差路径更接近恒等映射，梯度传播路径更顺，深层 Transformer 中通常更稳。
 
@@ -131,9 +149,11 @@ Pre-Norm 更像"先把输入整理好，再学一个残差修正"；Post-Norm �
 
 在 Pre-Norm 里：
 
+{{< rawhtml >}}
 $$
 \frac{\partial x_{l+1}}{\partial x_l} \approx I + \frac{\partial F(\text{LN}(x_l))}{\partial x_l}
 $$
+{{< /rawhtml >}}
 
 残差主干保留了一个接近 $I$ 的项，梯度不完全依赖子层 $F$ 的导数链式连乘。
 
@@ -164,9 +184,11 @@ self-attention 对输入 token 的排列本身没有天然顺序偏好。如果�
 
 ### 8.2 正余弦位置编码
 
+{{< rawhtml >}}
 $$
 PE(pos, 2i) = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right), \quad PE(pos, 2i+1) = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
 $$
+{{< /rawhtml >}}
 
 固定函数，不需要学习，某种程度上有长度外推能力。但表达形式固定，不够灵活。
 
@@ -205,17 +227,21 @@ RoPE 把"位置"直接耦合进了注意力匹配机制本身。在大模型和�
 
 关键：每个 head 的维度变小了，$d_k = d_{model}/h$。
 
+{{< rawhtml >}}
 $$
 h \cdot O(n^2 d_k) = O(n^2 h d_k) = O(n^2 d_{model})
 $$
+{{< /rawhtml >}}
 
 **多头注意力并不会把复杂度额外乘成 $O(h n^2 d_{model})$，因为每个 head 的维度缩小了。**
 
 多头注意力整体：
 
+{{< rawhtml >}}
 $$
 O(n d_{model}^2 + n^2 d_{model})
 $$
+{{< /rawhtml >}}
 
 ### 9.3 Transformer Block 的整体复杂度
 

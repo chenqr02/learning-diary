@@ -16,9 +16,11 @@ summary: '从 RL 基础到 DPO/GRPO，系统整理大模型强化学习与对齐
 
 在强化学习里，智能体和环境交互，在状态 $s$ 下采取动作 $a$，得到奖励 $r$，目标是最大化长期回报。
 
+{{< rawhtml >}}
 $$
 J(\theta) = \mathbb{E}_{\pi_{\theta}}[G_t], \quad G_t = \sum_{k=0}^{\infty} \gamma^k r_{t+k}
 $$
+{{< /rawhtml >}}
 
 找到参数 $\theta$，让策略产生的期望回报最大。
 
@@ -44,9 +46,11 @@ $$
 
 典型的 value-based 方法，核心是学习动作价值函数 $Q(s,a)$：
 
+{{< rawhtml >}}
 $$
 Q(s,a) \leftarrow r + \gamma \max_{a'} Q(s', a')
 $$
+{{< /rawhtml >}}
 
 离散动作空间常见，off-policy，不适合直接拿来做语言模型 RLHF——动作空间太大，输出是整个 token 分布。
 
@@ -54,9 +58,11 @@ $$
 
 最基础的 policy gradient 方法：
 
+{{< rawhtml >}}
 $$
 \nabla_{\theta} J(\theta) = \mathbb{E}[\nabla_{\theta} \log \pi_{\theta}(a \mid s) \cdot R]
 $$
+{{< /rawhtml >}}
 
 如果某个动作带来高回报，就提高它的概率；如果带来低回报，就降低它的概率。理论形式简单直观，但方差很大，训练容易震荡。更像理解 policy gradient 的起点，而不是大模型后训练的最终实用方案。
 
@@ -68,9 +74,11 @@ PPO 是 RLHF 中最高频的方法之一。核心不是"让模型更聪明"，�
 
 **关键公式**：
 
+{{< rawhtml >}}
 $$
 L = \mathbb{E}[\min(r_t A_t, \operatorname{clip}(r_t, 1-\varepsilon, 1+\varepsilon) A_t)]
 $$
+{{< /rawhtml >}}
 
 其中 $r_t = \frac{\pi_{\theta}(a_t \mid s_t)}{\pi_{\theta, old}(a_t \mid s_t)}$ 是新旧策略在该动作上的概率比，$A_t$ 是 advantage。
 
@@ -100,9 +108,11 @@ DPO 最关键的点是：把偏好学习写成一个监督式优化问题，而�
 
 **核心思想**：引入参考模型 $\pi_{ref}$，优化当前策略 $\pi_{\theta}$，让 chosen 相对 rejected 的对数概率比更有优势：
 
+{{< rawhtml >}}
 $$
 \log \sigma \Big( \beta \big[ \log \frac{\pi_{\theta}(y^+ \mid x)}{\pi_{ref}(y^+ \mid x)} - \log \frac{\pi_{\theta}(y^- \mid x)}{\pi_{ref}(y^- \mid x)} \big] \Big)
 $$
+{{< /rawhtml >}}
 
 相对参考模型，让 chosen 的优势更大，让 rejected 的优势更小。
 

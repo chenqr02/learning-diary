@@ -44,7 +44,9 @@ Transformer 推理分成两个阶段：
 
 Roofline 模型提供了一个判断操作是 compute-bound 还是 memory-bound 的框架：
 
+{{< rawhtml >}}
 $$\text{Achieved Performance (FLOP/s)} = \min(\text{Peak FLOP/s}, \text{Arithmetic Intensity} \times \text{Peak Bandwidth})$$
+{{< /rawhtml >}}
 
 其中 Arithmetic Intensity = FLOP / byte（每读取一个字节要做多少次浮点运算）。
 
@@ -65,11 +67,15 @@ $$\text{Achieved Performance (FLOP/s)} = \min(\text{Peak FLOP/s}, \text{Arithmet
 
 ### 2.2 KV Cache 显存公式
 
+{{< rawhtml >}}
 $$\text{Memory} = 2 \times L \times n \times n_{heads} \times d_{head} \times \text{bytes\_per\_element}$$
+{{< /rawhtml >}}
 
 以 LLaMA-2 70B（80 层，64 头，head_dim=128，FP16，上下文 4096）为例：
 
+{{< rawhtml >}}
 $$2 \times 80 \times 4096 \times 64 \times 128 \times 2 \approx 10.7 \text{ GB}$$
+{{< /rawhtml >}}
 
 ### 2.3 收益与代价
 
@@ -162,7 +168,9 @@ Sarathi-Serve（Agrawal et al., 2024）发现长 prompt 的 prefill 会独占 GP
 
 StreamingLLM（Xiao et al., 2023）的解决方案：
 
+{{< rawhtml >}}
 $$\text{KV retained} = \text{sink tokens (通常4个)} + \text{recent window}$$
+{{< /rawhtml >}}
 
 ### 6.3 KV Cache 量化
 
@@ -197,7 +205,9 @@ DeepSeek-V2 提出。将 K/V 投影到低维潜在空间 $c \ll d$，KV Cache �
 
 RoPE 是当前 decoder-only LLM 的主流位置编码方案。通过在复数平面上旋转 Q/K 向量来编码位置：
 
+{{< rawhtml >}}
 $$q_m = q \cdot e^{im\theta}, \quad k_n = k \cdot e^{in\theta}$$
+{{< /rawhtml >}}
 
 使得 $\langle q_m, k_n \rangle$ 只依赖相对位置 $m-n$。
 
@@ -238,7 +248,9 @@ FlashAttention-2 改进了并行性，FlashAttention-3 利用 H100 特性（WGMM
 
 标准 softmax 需要看到整行所有值才能计算，无法分块。Online softmax 维护运行中的最大值 $m$ 和指数和 $\sigma$，分块处理时逐步更新：
 
+{{< rawhtml >}}
 $$m_i = \max(m_{i-1}, \max_j s_{ij}), \quad \sigma_i = e^{m_{i-1}-m_i} \sigma_{i-1} + \sum_j e^{s_{ij}-m_i}$$
+{{< /rawhtml >}}
 
 最终 $O = O_{running} / \sigma$，数学上与标准 softmax 完全等价。
 
@@ -269,7 +281,9 @@ CUDA kernel 开发需要 C++ 和 GPU 底层知识。Triton 是基于 Python 的 
 
 **AWQ**（Lin et al., 2023）：观察到并非所有权重同等重要——对应大激活值的权重对量化误差更敏感。AWQ 在量化前对这些显著通道进行缩放保护：
 
+{{< rawhtml >}}
 $$Q(W \cdot \text{diag}(s)^{-1}) \cdot \text{diag}(s) \approx W$$
+{{< /rawhtml >}}
 
 AWQ 在 4-bit 精度上通常优于 GPTQ，且更快，是生产中广泛使用的选择。
 
@@ -279,7 +293,9 @@ AWQ 在 4-bit 精度上通常优于 GPTQ，且更快，是生产中广泛使用�
 
 PTQ 在小数据集上校准后应用量化，精度恢复有限。QAT 在微调的前向传播中引入伪量化算子：
 
+{{< rawhtml >}}
 $$\hat{x} = \text{round}\left(\frac{x}{s}\right) \cdot s$$
+{{< /rawhtml >}}
 
 梯度通过 Straight-Through Estimator（STE）反向传播：将 round 函数的梯度近似为 1。QAT 在极端位宽（2-3 bit）下精度优于 PTQ，但需要大量算力。
 
@@ -323,7 +339,9 @@ $$\hat{x} = \text{round}\left(\frac{x}{s}\right) \cdot s$$
 
 Medusa（Cai et al., 2024）不需要独立 draft 模型。在 target 模型上加 $K$ 个轻量线性头，每个头预测第 $t+k$ 个 token：
 
+{{< rawhtml >}}
 $$\text{logits}_{t+k} = \text{MedusaHead}_k(h_t)$$
+{{< /rawhtml >}}
 
 实现自投机（self-speculative），Medusa-2 加入自蒸馏，达到 2-3x 加速。
 
@@ -369,7 +387,9 @@ Ring Attention（Liu et al., 2023）将长上下文 attention 分布到多个设
 
 Mamba（Gu & Dao, 2023）通过学习的循环状态处理序列，而非 attention：
 
+{{< rawhtml >}}
 $$h_t = A h_{t-1} + B x_t, \quad y_t = C h_t$$
+{{< /rawhtml >}}
 
 - 推理时 $O(n)$ 时间、$O(1)$ 内存（隐藏状态固定大小，无 KV Cache）
 - 弱点：对需要精确回溯特定上下文的任务不如 attention
@@ -511,7 +531,9 @@ OpenAI o1 和 DeepSeek-R1 代表质变：不是通过 prompt 引导 CoT，而是
 
 按层切模型，不同设备负责不同层段。参数显存分担明显，但有 pipeline bubble：
 
+{{< rawhtml >}}
 $$\text{Bubble fraction} = \frac{p-1}{m+p-1}$$
+{{< /rawhtml >}}
 
 $p=8, m=32$ 时 bubble $\approx 18\%$。通信高效（只在层边界传激活），可跨节点 InfiniBand 扩展。
 
@@ -529,7 +551,9 @@ $p=8, m=32$ 时 bubble $\approx 18\%$。通信高效（只在层边界传激活�
 
 MoE 模型（Mixtral、DeepSeek-V2）用 E 个专家 FFN 替代密集 FFN，路由器为每个 token 选择 top-K 专家：
 
+{{< rawhtml >}}
 $$y = \sum_{k \in \text{Top-K}} g_k \cdot \text{Expert}_k(x)$$
+{{< /rawhtml >}}
 
 Mixtral 8x7B 总参数 47B，但每 token 只激活 13B。推理挑战：
 
@@ -598,7 +622,9 @@ FP16 更容易数值溢出，BF16 动态范围更大（与 FP32 相同指数范�
 
 ### 20.3 成本建模
 
+{{< rawhtml >}}
 $$\text{Cost per 1M tokens} = \frac{\text{GPU cost/hour}}{\text{tokens/hour}}$$
+{{< /rawhtml >}}
 
 降本手段：最大化 GPU 利用率（大 batch、continuous batching）、量化/蒸馏/小模型、Spot 实例（便宜 60-80%）、精简输出。
 

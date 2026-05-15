@@ -19,23 +19,29 @@ summary: '整理 Self-Distillation Fine-Tuning 的问题背景、核心目标、
 
 指令微调通常可以写成一个很熟悉的最大似然目标。给定训练数据：
 
+{{< rawhtml >}}
 $$
 \mathcal{D} = \{(x_i, y_i)\}_{i=1}^{N}
 $$
+{{< /rawhtml >}}
 
 模型参数为：
 
+{{< rawhtml >}}
 $$
 \theta
 $$
+{{< /rawhtml >}}
 
 普通 SFT 的目标是最大化标注答案的条件概率：
 
+{{< rawhtml >}}
 $$
 \max_{\theta}
 \sum_{(x,y)\in \mathcal{D}}
 \log \pi_{\theta}(y|x)
 $$
+{{< /rawhtml >}}
 
 这个目标很直接：让模型在新数据上更像标注答案。但它没有显式关心模型原本会怎么回答，也没有显式约束旧任务上的行为。因此当新数据分布比较窄、训练轮数较多，或者学习率偏大时，模型会逐渐把概率质量挪到新数据偏好的区域。
 
@@ -56,15 +62,19 @@ SDFT 的名字里有两个关键词：`self-distillation` 和 `fine-tuning`。
 
 这里的 `self` 指的是 teacher 不是另一个更大的模型，而是 fine-tuning 之前的模型副本。设初始模型为：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta_0}
 $$
+{{< /rawhtml >}}
 
 训练中的模型为：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta}
 $$
+{{< /rawhtml >}}
 
 SDFT 一边让当前模型学习新数据的标准答案，一边让当前模型在同一批输入上不要过度偏离初始模型的 token 分布。直观上可以理解为：
 
@@ -72,13 +82,14 @@ SDFT 一边让当前模型学习新数据的标准答案，一边让当前模型
 
 因此，SDFT 的目标可以粗略拆成两部分：
 
+{{< rawhtml >}}
 $$
+\begin{aligned}
 \mathcal{L}_{SDFT}
-=
-\mathcal{L}_{SFT}
-+
-\lambda \mathcal{L}_{SD}
+&= \mathcal{L}_{SFT} + \lambda \mathcal{L}_{SD}
+\end{aligned}
 $$
+{{< /rawhtml >}}
 
 其中：
 
@@ -92,12 +103,15 @@ $$
 
 普通 SFT 在每个 token 位置上只看标注答案：
 
+{{< rawhtml >}}
 $$
 -\log \pi_\theta(y_t | x, y_{<t})
 $$
+{{< /rawhtml >}}
 
 而自蒸馏会额外比较当前模型和初始模型在同一上下文上的分布。常见写法是 KL 约束：
 
+{{< rawhtml >}}
 $$
 D_{KL}
 \left(
@@ -106,16 +120,18 @@ D_{KL}
 \pi_{\theta}(\cdot | x, y_{<t})
 \right)
 $$
+{{< /rawhtml >}}
 
 把它加到逐 token 的训练目标里，可以得到类似下面的形式：
 
+{{< rawhtml >}}
 $$
+\begin{aligned}
 \mathcal{L}_{SDFT}
-=
--
+&= -
 \sum_t
-\log \pi_\theta(y_t | x, y_{<t})
-+
+\log \pi_\theta(y_t | x, y_{<t}) \\
+&\quad +
 \lambda
 \sum_t
 D_{KL}
@@ -124,7 +140,9 @@ D_{KL}
 \Vert
 \pi_{\theta}(\cdot | x, y_{<t})
 \right)
+\end{aligned}
 $$
+{{< /rawhtml >}}
 
 这和普通 SFT 的差别非常关键。
 
@@ -152,15 +170,19 @@ SDFT 的自蒸馏项相当于在新数据附近加入一个行为正则项。它
 
 SDFT 不直接约束参数：
 
+{{< rawhtml >}}
 $$
 \|\theta - \theta_0\|
 $$
+{{< /rawhtml >}}
 
 而是约束模型行为：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta}(\cdot | s) \approx \pi_{\theta_0}(\cdot | s)
 $$
+{{< /rawhtml >}}
 
 这里的 `s` 是上下文状态。行为约束通常比参数约束更贴近生成质量，因为大模型存在大量参数冗余：参数变化不一定代表行为变化，参数不变也不一定保证输出分布稳定。
 
@@ -176,9 +198,11 @@ SFT 是“向标注答案靠近”；SDFT 是“向标注答案靠近，但尽�
 
 如果把语言模型看成一个策略：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta}(y_t | x, y_{<t})
 $$
+{{< /rawhtml >}}
 
 那么 SFT 可以理解为从专家轨迹中学习行为。问题是，专家轨迹只告诉我们“做了什么”，不直接告诉我们“为什么这么做”。IRL 的思想则是从专家行为中反推出隐含奖励函数。
 
@@ -194,15 +218,19 @@ $$
 
 SFT 是单目标学习：
 
+{{< rawhtml >}}
 $$
 \text{fit new labels}
 $$
+{{< /rawhtml >}}
 
 SDFT 是双目标学习：
 
+{{< rawhtml >}}
 $$
 \text{fit new labels} + \text{preserve old behavior}
 $$
+{{< /rawhtml >}}
 
 因此 SDFT 更适合持续学习、领域增量学习、偏好微调后的继续训练等场景；如果只追求单一新任务上的极致拟合，普通 SFT 可能更激进。
 
@@ -210,15 +238,19 @@ $$
 
 传统知识蒸馏通常有一个更强 teacher：
 
+{{< rawhtml >}}
 $$
 \pi_T
 $$
+{{< /rawhtml >}}
 
 学生模型学习 teacher 的分布。SDFT 的 teacher 则是自己过去的版本：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta_0}
 $$
+{{< /rawhtml >}}
 
 这带来两个好处：
 
@@ -264,9 +296,11 @@ SDFT 更强调持续学习中的稳定性。它的 teacher 是初始模型，核
 
 训练前复制一份初始模型作为 reference：
 
+{{< rawhtml >}}
 $$
 \pi_{\theta_0}
 $$
+{{< /rawhtml >}}
 
 训练时它只做前向推理，不参与梯度更新。当前模型则同时接受 SFT loss 和 distillation loss。
 
@@ -331,4 +365,3 @@ SDFT 可以看成一种非常朴素但有效的持续学习方法：**继续微�
 一句话概括：
 
 > SFT 负责让模型学新东西，SDFT 负责让模型学新东西时不要忘得太快。
-
