@@ -1385,6 +1385,55 @@ class ContextManager:
         return [system, {"role": "system", "content": f"历史摘要：{summary}"}] + recent
 ```
 
+**Claude Code 的压缩机制案例：**
+
+Claude Code 是上下文窗口管理的典型工程样本。官方文档确认：Claude Code 会通过 prompt caching 降低重复上下文成本，并在接近上下文限制时用 auto-compaction 对对话历史做摘要；用户也可以手动运行 `/compact`，并附加“重点保留什么”的指令。Claude Code 的 hook 文档还暴露了两个生命周期事件：`PreCompact` 会在手动 `/compact` 或自动压缩前触发，`PostCompact` 会在压缩后触发，并携带 `compact_summary`。
+
+结合泄漏源码整理和社区逆向讲解，可以把它理解成一个多层压缩流水线，而不是单一的“把历史总结一下”：
+
+| 层次 | 做什么 | 设计目的 |
+|------|--------|----------|
+| 工具结果微压缩 | 对旧的 `Read`、`Bash`、`Grep`、Web 等工具结果做清空、裁剪或缓存级删除 | 先处理最占 token 的工具输出，尽量不动用户意图和代码结论 |
+| Snip / 分组丢弃 | 按 API round 分组，保证 `tool_use` 与 `tool_result` 不被拆散，必要时丢弃旧完整组 | 避免消息结构损坏，作为便宜的 token 回收方式 |
+| Context Collapse | 在读取上下文时生成一个“折叠视图”，原始历史不一定立刻被改写 | 降低 prompt cache 失效概率 |
+| Full Compaction | 启动一次额外 LLM 调用，把旧上下文总结成结构化摘要 | 成本最高，但能最大幅度释放上下文窗口 |
+| 错误恢复压缩 | 如果压缩请求本身过长，则进一步丢弃最旧消息组后重试 | 防止压缩过程也触发 `prompt_too_long` |
+
+**触发阈值：**
+
+- 官方说法偏产品化：当上下文接近限制时自动压缩；成本文档建议用 `/usage` 或状态栏监控 token，并用 `/compact Focus on ...` 主动控制摘要重点。
+- 社区对泄漏源码的整理给出更具体的实现：auto-compact 的阈值大致是 `context_window - reserved_for_summary - buffer`，其中摘要预留约 20K，额外 buffer 约 13K。以 200K 上下文为例，触发点约在 167K tokens。
+- 另有社区分析指出部分版本曾存在服务端硬编码 150K 阈值的问题，在 1M 上下文模型上会过早触发压缩。这个细节应视为版本相关实现，而不是稳定 API 契约。
+
+**摘要内容不是自由发挥，而是结构化保真：**
+
+泄漏源码讲解中提到，Full Compaction 的 summary prompt 会要求模型保留固定类别的信息，例如：
+
+- 用户的原始目标和约束
+- 关键技术概念、架构决定、已读文件和代码片段
+- 已经遇到的错误、修复方式、测试输出
+- 所有非工具结果的用户消息
+- 当前正在做什么、待办事项、下一步建议
+
+这样做的核心是减少“压缩后失忆”：普通摘要容易丢掉用户约束、失败尝试、文件路径和局部代码；结构化摘要则把 Agent 继续执行所需的状态显式编码出来。
+
+**几个值得在面试中强调的工程点：**
+
+- **优先压缩工具结果，而不是压缩用户消息**：Agent 的 token 膨胀通常来自文件读取、搜索结果、测试日志和命令输出，用户意图反而相对短。
+- **按工具调用轮次分组**：不能把 assistant 的 tool call 和 user/tool result 拆开，否则下一轮模型看到的消息结构会非法或语义断裂。
+- **压缩本身也是一次 LLM 调用**：它会消耗 token、可能失败，也可能被长图片或超大日志拖垮，所以需要图片占位、旧组丢弃、重试和 circuit breaker。
+- **要保留 prompt cache 价值**：如果压缩方式频繁改写长前缀，缓存收益会下降；因此社区分析中特别强调缓存感知删除、折叠视图和 forked agent 复用父会话缓存。
+- **压缩是攻击面**：如果仓库文件或工具输出里包含“像用户指令一样”的恶意文本，摘要阶段可能把它洗成后续上下文里的高优先级任务。生产系统应在摘要 prompt 中明确来源边界，并在压缩前后做审计。
+
+**面试回答模板：** Claude Code 的压缩机制可以概括为“分层 token 回收 + 结构化摘要 + 生命周期 hook + 失败保护”。先裁剪低价值大体积工具输出，再在接近窗口上限时用额外模型调用生成可继续执行的摘要；摘要要保留目标、约束、文件、错误、当前状态和下一步。真正难点不在摘要算法，而在消息结构完整性、prompt cache、工具输出预算、压缩失败兜底和安全边界。
+
+**参考资料：**
+
+- Anthropic Claude Code 成本文档：auto-compaction、`/compact` 指令和自定义 compact instructions（https://code.claude.com/docs/en/costs）
+- Anthropic Claude Code Hooks 文档：`PreCompact` / `PostCompact` 生命周期事件（https://code.claude.com/docs/en/hooks）
+- Claude Wiki Auto-Compact：基于泄漏源码的 auto-compact 阈值、三层压缩、forked agent 和 circuit breaker 整理（https://claude-wiki.com/auto-compact.html）
+- Claude Wiki Compaction Pipeline：基于泄漏源码的多层 compaction pipeline、阈值问题和安全风险整理（https://claude-wiki.com/compaction-pipeline.html）
+
 ---
 
 ### 29｜Harness 如何实现安全控制和权限管理？
